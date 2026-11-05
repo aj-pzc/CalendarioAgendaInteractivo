@@ -31,7 +31,7 @@ Generate a session secret with:
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
-3. Vercel can use the default Next.js build command, `npm run build`. The `postinstall` script generates the Prisma client.
+3. Vercel can use the default Next.js build command, `npm run build`. This script generates the Prisma client explicitly before building the application.
 4. The Railway database for this project was created with `prisma db push`. Its existing `Company`, `User`, and `Reservation` tables match the current Prisma schema. The baseline migration must be marked as applied once; do not run it against this existing database as a create-table migration.
 
 For the existing Railway database, set `DATABASE_URL` locally to the Railway URL and run this once from the repository root:
