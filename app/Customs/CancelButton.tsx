@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { cancelReservation } from '@/app/actions/reservations';
+import { deleteReservationAction } from '@/app/actions/reservations';
 
 export default function CancelButton({ reservationId }: { reservationId: string }) {
   const [isPending, setIsPending] = useState(false);
@@ -11,7 +11,7 @@ export default function CancelButton({ reservationId }: { reservationId: string 
     if (!confirm) return;
 
     setIsPending(true);
-    const res = await cancelReservation(reservationId);
+    const res = await deleteReservationAction(reservationId);
     setIsPending(false);
 
     if (!res.success) {
