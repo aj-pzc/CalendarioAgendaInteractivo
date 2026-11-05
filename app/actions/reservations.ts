@@ -1,12 +1,15 @@
 'use server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+
+type Recurso = 'SALA' | 'OFICINA';
 
 interface CreateReservationParams {
   userId: string;
   titulo: string;
-  recurso: string;
+  recurso: Recurso;
   startTime: string; 
   endTime: string;
   targetCompanyId?: string;
@@ -15,9 +18,50 @@ interface CreateReservationParams {
 interface UpdateReservationParams {
   id: string;
   titulo: string;
-  recurso: string;
+  recurso: Recurso;
   startTime: string;
   endTime: string;
+}
+
+function isRecurso(value: string): value is Recurso {
+  return value === 'SALA' || value === 'OFICINA';
+}
+
+async function hasReservationConflict(
+  tx: Prisma.TransactionClient,
+  recurso: Recurso,
+  startTime: Date,
+  endTime: Date,
+  excludeReservationId?: string
+) {
+  return tx.reservation.findFirst({
+    where: {
+      recurso,
+      estado: { not: 'CANCELADA' },
+      id: excludeReservationId ? { not: excludeReservationId } : undefined,
+      startTime: { lt: endTime },
+      endTime: { gt: startTime },
+    },
+    select: { id: true },
+  });
+}
+
+async function withReservationLock<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>) {
+  return prisma.$transaction(
+    async (tx) => {
+      // Serialize reservation writes across companies before checking for overlapping times.
+      const lock = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM Company ORDER BY id LIMIT 1 FOR UPDATE
+      `;
+
+      if (!lock.length) {
+        throw new Error('No hay empresas disponibles para bloquear la operación de reservas.');
+      }
+
+      return operation(tx);
+    },
+    { maxWait: 10000, timeout: 15000 }
+  );
 }
 
 export async function createReservation({
@@ -50,6 +94,14 @@ export async function createReservation({
     const end = new Date(endTime);
     const now = new Date();
 
+    if (!isRecurso(recurso)) {
+      return { error: 'El espacio seleccionado no es válido.' };
+    }
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return { error: 'La fecha u hora seleccionada no es válida.' };
+    }
+
     const isPastBooking = start < now;
     const isMaster = currentUser.role === 'MASTER';
 
@@ -72,24 +124,34 @@ export async function createReservation({
       return { error: 'No se ha especificado una empresa válida para la reserva.' };
     }
 
-    // 4. Crear la reservación
-    await prisma.reservation.create({
-      data: {
-        titulo,
-        recurso: recurso || 'SALA',
-        startTime: start,
-        endTime: end,
-        horasSolicitadas,
-        userId: currentUser.id,
-        companyId: finalCompanyId,
-        estado: 'CONFIRMADA',
-      },
+    const created = await withReservationLock(async (tx) => {
+      const conflict = await hasReservationConflict(tx, recurso, start, end);
+      if (conflict) return false;
+
+      await tx.reservation.create({
+        data: {
+          titulo,
+          recurso,
+          startTime: start,
+          endTime: end,
+          horasSolicitadas,
+          userId: currentUser.id,
+          companyId: finalCompanyId,
+          estado: 'CONFIRMADA',
+        },
+      });
+
+      await tx.company.update({
+        where: { id: finalCompanyId },
+        data: { horasUsadas: { increment: horasSolicitadas } },
+      });
+
+      return true;
     });
 
-    await prisma.company.update({
-      where: { id: finalCompanyId },
-      data: { horasUsadas: { increment: horasSolicitadas } },
-    });
+    if (!created) {
+      return { error: 'El espacio ya está reservado en ese horario. Selecciona otro horario.' };
+    }
 
     revalidatePath('/');
     return { success: true };
@@ -148,37 +210,6 @@ export async function deleteReservationAction(reservationId: string) {
   }
 }
 
-export async function checkConflict({
-  recurso,
-  startTime,
-  endTime,
-  excludeReservationId,
-}: {
-  recurso: 'SALA' | 'OFICINA';
-  startTime: Date;
-  endTime: Date;
-  excludeReservationId?: string;
-}) {
-  const conflict = await prisma.reservation.findFirst({
-    where: {
-      recurso,
-      // Opcional: Ignorar reservas que estén canceladas si usas esa columna
-      estado: { not: 'CANCELADA' }, 
-      id: excludeReservationId ? { not: excludeReservationId } : undefined,
-      AND: [
-        {
-          startTime: { lt: endTime },
-        },
-        {
-          endTime: { gt: startTime },
-        },
-      ],
-    },
-  });
-
-  return !!conflict;
-}
-
 export async function updateReservationAction({
   id,
   titulo,
@@ -224,6 +255,14 @@ export async function updateReservationAction({
     const end = new Date(endTime);
     const now = new Date();
 
+    if (!isRecurso(recurso)) {
+      return { error: 'El espacio seleccionado no es válido.' };
+    }
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return { error: 'La fecha u hora seleccionada no es válida.' };
+    }
+
     if (start < now && !isMaster) {
       return { error: 'No puedes programar reservas en horarios pasados.' };
     }
@@ -235,16 +274,27 @@ export async function updateReservationAction({
     const diffMs = end.getTime() - start.getTime();
     const horasSolicitadas = Math.max(0, diffMs / (1000 * 60 * 60));
 
-    await prisma.reservation.update({
-      where: { id },
-      data: {
-        titulo,
-        recurso,
-        startTime: start,
-        endTime: end,
-        horasSolicitadas,
-      },
+    const updated = await withReservationLock(async (tx) => {
+      const conflict = await hasReservationConflict(tx, recurso, start, end, id);
+      if (conflict) return false;
+
+      await tx.reservation.update({
+        where: { id },
+        data: {
+          titulo,
+          recurso,
+          startTime: start,
+          endTime: end,
+          horasSolicitadas,
+        },
+      });
+
+      return true;
     });
+
+    if (!updated) {
+      return { error: 'El espacio ya está reservado en ese horario. Selecciona otro horario.' };
+    }
 
     revalidatePath('/');
     return { success: true };

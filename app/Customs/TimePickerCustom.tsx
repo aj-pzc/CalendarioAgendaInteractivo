@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 interface BusySlot {
   startTime: string;
   endTime: string;
-  recurso: 'SALA' | 'OFICINA';
+  recurso: string;
 }
 
 interface TimePickerCustomProps {
@@ -15,6 +15,7 @@ interface TimePickerCustomProps {
   recurso?: 'SALA' | 'OFICINA';
   busySlots?: BusySlot[];
   fechaSeleccionada?: string | Date | null;
+  allowPastTimes?: boolean;
 }
 
 export default function TimePickerCustom({
@@ -24,6 +25,7 @@ export default function TimePickerCustom({
   recurso = 'SALA',
   busySlots = [],
   fechaSeleccionada = new Date(),
+  allowPastTimes = false,
 }: TimePickerCustomProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -87,7 +89,7 @@ export default function TimePickerCustom({
     for (let totalMinutes = 8.5 * 60; totalMinutes <= 19 * 60; totalMinutes += 15) {
       
       // Si es hoy, filtramos las horas que ya pasaron. Si es futuro, pasa de largo y muestra todo.
-      if (esHoy && totalMinutes < minMinutesHoy) {
+      if (!allowPastTimes && esHoy && totalMinutes < minMinutesHoy) {
         continue;
       }
 
@@ -124,7 +126,7 @@ export default function TimePickerCustom({
     }
 
     return options;
-  }, [fechaSeleccionada, busySlots, recurso]);
+  }, [fechaSeleccionada, busySlots, recurso, allowPastTimes]);
 
   const handleSelectOption = (h24: number, minute: number) => {
     const newDate = new Date(date);

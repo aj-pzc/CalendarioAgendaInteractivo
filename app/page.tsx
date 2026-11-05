@@ -65,6 +65,7 @@ export default async function HomePage() {
   }
 
   const allReservations = await prisma.reservation.findMany({
+    where: { estado: { not: 'CANCELADA' } },
     include: {
       user: {
         include: {
@@ -129,6 +130,11 @@ export default async function HomePage() {
               userId={user.id} 
               isMaster={user.role === 'MASTER'}
               companies={allCompaniesForMaster}
+              busySlots={allReservations.map((reservation) => ({
+                startTime: reservation.startTime.toISOString(),
+                endTime: reservation.endTime.toISOString(),
+                recurso: reservation.recurso,
+              }))}
              />
           </section>
 

@@ -10,9 +10,15 @@
     userId: string; 
     isMaster?: boolean;
     companies?: { id: string; nombre: string }[];
+    busySlots?: { startTime: string; endTime: string; recurso: string }[];
   }
 
-  export default function ReservationForm({ userId, isMaster = false, companies = [] }: ReservationFormProps) {
+  export default function ReservationForm({
+    userId,
+    isMaster = false,
+    companies = [],
+    busySlots = [],
+  }: ReservationFormProps) {
     const [step, setStep] = useState<1 | 2>(1);
     const [showModal, setShowModal] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -404,14 +410,18 @@
                   }
                 }}
                 recurso={recurso}
+                busySlots={busySlots}
                 fechaSeleccionada={fechaSeleccionada}
+                allowPastTimes={isMaster}
               />
               <TimePickerCustom
                 label="Hora de Fin"
                 value={endTime}
                 onChange={(date) => setEndTime(date)}
                 recurso={recurso}
+                busySlots={busySlots}
                 fechaSeleccionada={fechaSeleccionada}
+                allowPastTimes={isMaster}
               />
             </div>
 

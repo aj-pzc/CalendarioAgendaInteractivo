@@ -333,6 +333,7 @@ export default function UpcomingReservations({
                   onChange={(date) => setEditStartTime(date)}
                   recurso={editRecurso}
                   fechaSeleccionada={editFecha}
+                  allowPastTimes={isMaster}
                 />
                 <TimePickerCustom
                   label="Hora de Fin"
@@ -340,6 +341,7 @@ export default function UpcomingReservations({
                   onChange={(date) => setEditEndTime(date)}
                   recurso={editRecurso}
                   fechaSeleccionada={editFecha}
+                  allowPastTimes={isMaster}
                 />
               </div>
 
