@@ -1,12 +1,11 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { getSessionUserId } from '@/lib/session';
 
 async function verifyMasterSession() {
-  const cookieStore = await cookies();
-  const sessionUserId = cookieStore.get('userId')?.value;
+  const sessionUserId = await getSessionUserId();
   if (!sessionUserId) return null;
 
   const user = await prisma.user.findUnique({
@@ -102,17 +101,27 @@ export async function updateUserAdminAction(formData: FormData) {
   const isMaster = await verifyMasterSession();
   if (!isMaster) return;
 
-  const userId = formData.get('userId') as string;
+  const userId = formData.get('userId');
   const isApproved = formData.get('isApproved') === 'true';
-  const role = formData.get('role') as string;
-  const companyId = formData.get('companyId') as string;
+  const role = formData.get('role');
+  const companyId = formData.get('companyId');
+
+  if (
+    typeof userId !== 'string' ||
+    !userId ||
+    typeof role !== 'string' ||
+    !['USER', 'ADMIN', 'MASTER'].includes(role) ||
+    typeof companyId !== 'string'
+  ) {
+    return { error: 'Los datos del usuario no son válidos.' };
+  }
 
   try {
     await prisma.user.update({
       where: { id: userId },
       data: {
         companyId: companyId || null,
-        role: role as any,
+        role,
         isApproved,
       },
     });

@@ -1,13 +1,12 @@
 'use server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { getSessionUserId } from '@/lib/session';
 
 type Recurso = 'SALA' | 'OFICINA';
 
 interface CreateReservationParams {
-  userId: string;
   titulo: string;
   recurso: Recurso;
   startTime: string; 
@@ -65,7 +64,6 @@ async function withReservationLock<T>(operation: (tx: Prisma.TransactionClient) 
 }
 
 export async function createReservation({
-  userId,
   titulo,
   recurso,
   startTime,
@@ -73,8 +71,7 @@ export async function createReservation({
   targetCompanyId,
 }: CreateReservationParams) {
   try {
-    const cookieStore = await cookies();
-    const sessionUserId = cookieStore.get('userId')?.value;
+    const sessionUserId = await getSessionUserId();
 
     if (!sessionUserId) {
       return { error: 'Sesión no válida. Por favor inicia sesión nuevamente.' };
@@ -163,8 +160,7 @@ export async function createReservation({
 
 export async function deleteReservationAction(reservationId: string) {
   try {
-    const cookieStore = await cookies();
-    const sessionUserId = cookieStore.get('userId')?.value;
+    const sessionUserId = await getSessionUserId();
 
     if (!sessionUserId) {
       return { error: 'Sesión no válida.' };
@@ -218,8 +214,7 @@ export async function updateReservationAction({
   endTime,
 }: UpdateReservationParams) {
   try {
-    const cookieStore = await cookies();
-    const sessionUserId = cookieStore.get('userId')?.value;
+    const sessionUserId = await getSessionUserId();
 
     if (!sessionUserId) {
       return { error: 'Sesión no válida.' };

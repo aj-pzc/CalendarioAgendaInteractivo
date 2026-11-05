@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { getSessionUserId } from '@/lib/session';
 import ReservationForm from '@/app/Comps/ReservationForm';
 import UpcomingReservations from '@/app/Comps/UpcomingReservations'; 
 import WeeklyCalendar from '@/app/Comps/WeeklyCalendar';
@@ -30,8 +30,7 @@ async function checkAndResetMonthlyHours() {
 
 export default async function HomePage() {
   // 1. Verificación de sesión del usuario
-  const cookieStore = await cookies();
-  const sessionUserId = cookieStore.get('userId')?.value;
+  const sessionUserId = await getSessionUserId();
 
   if (!sessionUserId) {
     redirect('/login');
@@ -127,7 +126,6 @@ export default async function HomePage() {
               <p className="text-xs text-slate-500">Selecciona el rango de horario deseado.</p>
             </div>
             <ReservationForm 
-              userId={user.id} 
               isMaster={user.role === 'MASTER'}
               companies={allCompaniesForMaster}
               busySlots={allReservations.map((reservation) => ({

@@ -7,14 +7,12 @@
   import CustomSelect from '../Customs/CustomSelect';
 
   interface ReservationFormProps {
-    userId: string; 
     isMaster?: boolean;
     companies?: { id: string; nombre: string }[];
     busySlots?: { startTime: string; endTime: string; recurso: string }[];
   }
 
   export default function ReservationForm({
-    userId,
     isMaster = false,
     companies = [],
     busySlots = [],
@@ -66,11 +64,12 @@
     const [startTime, setStartTime] = useState<Date | null>(initialTimes.start);
     const [endTime, setEndTime] = useState<Date | null>(initialTimes.end);
 
-    useEffect(() => {
-      const { start, end } = getInitialStartAndEndTimes(fechaSeleccionada);
+    const handleDateChange = (date: Date | null) => {
+      setFechaSeleccionada(date);
+      const { start, end } = getInitialStartAndEndTimes(date);
       setStartTime(start);
       setEndTime(end);
-    }, [fechaSeleccionada]);
+    };
 
     useEffect(() => {
       if (feedback) {
@@ -197,7 +196,6 @@
     fullEnd.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
 
     const res = await createReservation({
-      userId,
       titulo,
       recurso,
       startTime: fullStart.toISOString(),
@@ -216,7 +214,7 @@
       setTitulo('');
       setRecurso('SALA');
       setSelectedCompanyId(''); // <--- Limpiamos el select
-      setFechaSeleccionada(new Date());
+      handleDateChange(new Date());
       setStep(1);
     } else {
       setFeedback({
@@ -365,7 +363,7 @@
             <DatePickerCustom
               label="Fecha de Reserva"
               value={fechaSeleccionada}
-              onChange={(date) => setFechaSeleccionada(date)}
+              onChange={handleDateChange}
               minDate={isMaster ? undefined : new Date()}
             />
 

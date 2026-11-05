@@ -1,16 +1,15 @@
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createCompanyAction, updateCompanyHoursAction, updateUserAdminAction, deleteCompanyAction } from '@/app/actions/master';
 import MasterUsersList from '@/app/master/MasterUserList';
 import { revalidatePath } from 'next/cache';
+import { getSessionUserId } from '@/lib/session';
 
 // Acción inline para eliminar usuarios
 async function deleteUserAdminAction(formData: FormData) {
   'use server';
-  const cookieStore = await cookies();
-  const sessionUserId = cookieStore.get('userId')?.value;
+  const sessionUserId = await getSessionUserId();
   if (!sessionUserId) return;
 
   const currentMaster = await prisma.user.findUnique({
@@ -34,8 +33,7 @@ async function deleteUserAdminAction(formData: FormData) {
 }
 
 export default async function MasterPortalPage() {
-  const cookieStore = await cookies();
-  const sessionUserId = cookieStore.get('userId')?.value;
+  const sessionUserId = await getSessionUserId();
 
   if (!sessionUserId) redirect('/login');
 

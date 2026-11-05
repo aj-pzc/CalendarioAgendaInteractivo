@@ -30,11 +30,13 @@ export default function CustomSelect({
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [internalValue, setInternalValue] = useState(value);
+  const [previousValue, setPreviousValue] = useState(value);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  if (value !== previousValue) {
+    setPreviousValue(value);
     setInternalValue(value);
-  }, [value]);
+  }
 
   const selectedOption = options.find((opt) => opt.value === internalValue);
 

@@ -1,42 +1,62 @@
-# CCR Meeting Room Reservation System 🏢📅
+# CCR Meeting Room Reservation System
 
-A full-stack multi-tenant reservation platform designed for businesses to manage shared spaces (Meeting Rooms and Offices) efficiently, enforcing role-based permissions and real-time scheduling constraints.
+A multi-tenant reservation platform for managing shared meeting rooms and offices, with role-based access for `MASTER`, `ADMIN`, and `USER` accounts.
 
----
+## Stack
 
-## 🚀 Features
+- Next.js App Router, React, and TypeScript
+- MySQL with Prisma ORM
+- Vercel for the application and Railway for the database
 
-- **Multi-Tenant Architecture:** Isolated environments and management tailored for distinct corporate entities (e.g., CCR).
-- **Role-Based Access Control (RBAC):** Granular permissions supporting `MASTER`, `ADMIN`, and `USER` roles to govern approvals, user management, and bookings.
-- **Conflict Prevention Engine:** Built-in validation (`checkConflict`) to seamlessly prevent reservation overlaps for rooms and offices.
-- **Quota Tracking:** Real-time monitoring of available vs. used hours per company account.
-- **Modern Full-Stack Stack:** Powered by Next.js App Router for server-side efficiency and Prisma ORM for robust database integrity.
+## Local development
 
----
+Requirements: Node.js 20.9 or later and npm.
 
-## 🛠️ Tech Stack
+```powershell
+npm ci
+npx prisma generate
+npm run dev
+```
 
-- **Frontend & Backend:** Next.js (App Router), React, TypeScript / JavaScript
-- **Styling:** Tailwind CSS / SCSS
-- **Database & ORM:** MySQL, Prisma ORM
-- **Hosting & Deployment:** Vercel (Frontend/App) & Railway (Database)
+Set `DATABASE_URL` and a randomly generated `SESSION_SECRET` in `.env` before running Prisma commands or the application.
 
----
+## Deploying to Vercel with Railway
 
-## 🔗 Live Demo
+1. Import this repository into Vercel and set the project root to the repository root.
+2. Add `DATABASE_URL` and `SESSION_SECRET` to the Vercel environments that need access to the application. Use a Railway connection URL reachable from Vercel, and keep both values out of source control. `SESSION_SECRET` must be a randomly generated secret with at least 32 characters.
 
-Experience the live application here: [CCR Services Reservation App](https://tu-enlace-de-vercel.vercel.app) *(Actualiza este enlace una vez que esté desplegado)*
+Generate a session secret with:
 
----
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
 
-## 🏁 Getting Started
+3. Vercel can use the default Next.js build command, `npm run build`. The `postinstall` script generates the Prisma client.
+4. The Railway database for this project was created with `prisma db push`. Its existing `Company`, `User`, and `Reservation` tables match the current Prisma schema. The baseline migration must be marked as applied once; do not run it against this existing database as a create-table migration.
 
-### Prerequisites
+For the existing Railway database, set `DATABASE_URL` locally to the Railway URL and run this once from the repository root:
 
-Make sure you have Node.js and npm installed on your machine.
+```powershell
+npx prisma migrate resolve --applied 20261105160000_baseline_mysql
+```
 
-### 1. Clone the repository
+This records the baseline in Prisma's migration history and does not recreate or alter the existing tables. For a new empty database, use `npx prisma migrate deploy` instead to create the tables from the baseline.
 
-```bash
-git clone [https://github.com/clientesCcrWeb/AppSalaDeJuntas.git](https://github.com/clientesCcrWeb/AppSalaDeJuntas.git)
-cd AppSalaDeJuntas
+Existing sessions will need to sign in again after deployment because session cookies are now signed with `SESSION_SECRET`.
+
+For future schema changes, create and review a migration locally with `npx prisma migrate dev`, commit the migration files, and apply them to Railway with `npx prisma migrate deploy` before sending application traffic that depends on the new schema. Do not run `migrate deploy` against the existing Railway database until the baseline has been marked as applied.
+
+## Optional master-account seed
+
+The seed creates a master account only when the configured email and username do not already exist. It does not reset an existing account's password. Configure these environment variables before running `npx prisma db seed`:
+
+- `SEED_MASTER_EMAIL`
+- `SEED_MASTER_USERNAME`
+- `SEED_MASTER_NAME`
+- `SEED_MASTER_PASSWORD`
+- `SEED_MASTER_COMPANY` (optional; defaults to `CCR Business`)
+- `SEED_MASTER_DEPARTMENT` (optional; defaults to `Dirección`)
+
+Do not run the seed against Railway if the master account is already present.
+
+Password self-service recovery is currently disabled until an email-based verification flow is configured.

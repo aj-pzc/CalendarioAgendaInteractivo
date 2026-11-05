@@ -10,35 +10,35 @@ datasource db {
 
 // 1. Cuentas de Empresa 
 model Company {
-  id               String        @id @default(uuid())
-  nombre           String        @unique
-  horasDisponibles Float         @default(0.0)
-  horasUsadas      Float         @default(0.0)
-  
-  users            User[]        
-  reservations     Reservation[] 
+  id               String @id @default(uuid())
+  nombre           String @unique
+  horasDisponibles Float  @default(0.0)
+  horasUsadas      Float  @default(0.0)
 
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  users        User[]
+  reservations Reservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 2. Perfiles de Usuario
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  username     String        @unique 
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
   passwordHash String
   nombre       String
-  departamento String?      
-  role         String        @default("USER") // Valores esperados: "ADMIN", "USER", "MASTER"
-  isApproved   Boolean       @default(false)  
-  companyId    String?      
-  company      Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  
-  reservations Reservation[] 
-  
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  departamento String?
+  role         String   @default("USER") // Valores esperados: "ADMIN", "USER", "MASTER"
+  isApproved   Boolean  @default(false)
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  reservations Reservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 3. Reservaciones de Salas u Oficinas
@@ -50,15 +50,15 @@ model Reservation {
   endTime          DateTime
   horasSolicitadas Float
   estado           String   @default("CONFIRMADA") // "CONFIRMADA", "CANCELADA"
-  
+
   // Relación con la Empresa (onDelete aquí sí está permitido porque tiene fields y references)
-  companyId        String
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
   // Relación con el Usuario (onDelete aquí también es válido)
-  userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

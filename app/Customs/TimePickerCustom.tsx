@@ -110,7 +110,7 @@ export default function TimePickerCustom({
 
       if (isOccupied) continue;
 
-      let h12 = h24 % 12 || 12;
+      const h12 = h24 % 12 || 12;
       const hourString = String(h12).padStart(2, '0');
       const minuteString = String(m).padStart(2, '0');
       const optPeriod: 'AM' | 'PM' = h24 >= 12 ? 'PM' : 'AM';

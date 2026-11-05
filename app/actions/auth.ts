@@ -2,10 +2,10 @@
 
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcrypt';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { clearSessionCookie, setSessionCookie } from '@/lib/session';
 
-export async function loginAction(prevState: any, formData: FormData) {
+export async function loginAction(_prevState: { error: string } | null, formData: FormData) {
   const emailOrUser = formData.get('emailOrUser') as string; 
   const password = formData.get('password') as string;
 
@@ -37,19 +37,12 @@ export async function loginAction(prevState: any, formData: FormData) {
     return { error: 'Tu cuenta aún no ha sido aprobada por el administrador.' };
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set('userId', user.id, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  await setSessionCookie(user.id);
 
   redirect('/');
 }
 
-export async function registerAction(prevState: any, formData: FormData) {
+export async function registerAction(_prevState: { error: string } | null, formData: FormData) {
   const nombre = formData.get('nombre') as string;
   const username = formData.get('username') as string;
   const email = formData.get('email') as string;
@@ -88,43 +81,7 @@ export async function registerAction(prevState: any, formData: FormData) {
   redirect('/login?registered=true');
 }
 
-export async function forgotPasswordAction(prevState: any, formData: FormData) {
-  const email = formData.get('email') as string;
-  const username = formData.get('username') as string;
-  const newPassword = formData.get('newPassword') as string;
-  const confirmPassword = formData.get('confirmPassword') as string;
-
-  if (!email || !username || !newPassword || !confirmPassword) {
-    return { error: 'Por favor completa todos los campos.' };
-  }
-
-  if (newPassword !== confirmPassword) {
-    return { error: 'Las nuevas contraseñas no coinciden.' };
-  }
-
-  const user = await prisma.user.findFirst({
-    where: {
-      email,
-      username,
-    },
-  });
-
-  if (!user) {
-    return { error: 'Los datos no coinciden.' };
-  }
-
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash: hashedPassword },
-  });
-
-  return { success: '¡Contraseña restablecida con éxito! Ya puedes iniciar sesión.' };
-}
-
 export async function logoutAction() {
-  const cookieStore = await cookies();
-  cookieStore.delete('userId');
+  await clearSessionCookie();
   redirect('/login');
 }
