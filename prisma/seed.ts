@@ -51,7 +51,7 @@ async function main() {
     },
   ];
 
-  // 3. Insertar o actualizar cada usuario 
+  // 3. Insertar o actualizar cada usuario
   for (const userData of usuariosPrueba) {
     const usuario = await prisma.user.upsert({
       where: { email: userData.email },
