@@ -213,7 +213,7 @@
       });
       setTitulo('');
       setRecurso('SALA');
-      setSelectedCompanyId(''); // <--- Limpiamos el select
+      setSelectedCompanyId(''); 
       handleDateChange(new Date());
       setStep(1);
     } else {
@@ -304,7 +304,7 @@
           <form onSubmit={handleNextStep} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Título / Motivo de la Reunión
+                Título de Reunión
               </label>
               <input
                 type="text"

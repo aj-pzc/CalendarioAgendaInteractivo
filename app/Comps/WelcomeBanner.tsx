@@ -4,7 +4,7 @@ export default function WelcomeBanner({ userName, horasDisponibles }: { userName
       <div>
         <h2 className="text-xl font-bold">¡Hola, {userName}!</h2>
         <p className="text-slate-300 text-sm mt-1">
-          Tu empresa cuenta con <strong className="text-white">{horasDisponibles} horas disponibles</strong> para coordinar reuniones.
+          Aun tienes <strong className="text-white">{horasDisponibles} horas disponibles</strong> para coordinar reuniones.
         </p>
       </div>
     </section>

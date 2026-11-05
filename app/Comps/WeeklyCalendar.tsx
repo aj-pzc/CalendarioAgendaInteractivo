@@ -167,7 +167,7 @@ export default function WeeklyCalendar({
       <div className="flex flex-wrap justify-between items-center gap-4 border-b border-slate-100 pb-4">
         <div>
           <h2 className="text-base font-bold text-slate-900">
-            Horarios de Ocupación
+            Horarios Disponibles
           </h2>
           <p className="text-xs text-slate-500">
             Horario hábil: 08:30 AM - 07:00 PM • Semana del{' '}
@@ -181,7 +181,7 @@ export default function WeeklyCalendar({
         <div className="flex items-center gap-4 text-[11px] text-slate-500 font-medium bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-md bg-slate-900 inline-block" />
-            <span>Detalles Visibles</span>
+            <span>Detalles </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-md bg-slate-100 border border-slate-300 inline-block" />

@@ -64,6 +64,7 @@ export default function UpcomingReservations({
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const [editingRes, setEditingRes] = useState<ReservationItem | null>(null);
+  const [cancelingRes, setCancelingRes] = useState<ReservationItem | null>(null);
   const [editTitulo, setEditTitulo] = useState('');
   const [editRecurso, setEditRecurso] = useState<'SALA' | 'OFICINA'>('SALA');
   const [editFecha, setEditFecha] = useState<Date | null>(new Date());
@@ -79,14 +80,16 @@ export default function UpcomingReservations({
     return false;
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas cancelar esta reserva?')) return;
+  const handleDelete = async () => {
+    if (!cancelingRes) return;
 
-    setLoadingId(id);
+    const reservationId = cancelingRes.id;
+    setLoadingId(reservationId);
     setFeedback(null);
 
-    const res = await deleteReservationAction(id);
+    const res = await deleteReservationAction(reservationId);
     setLoadingId(null);
+    setCancelingRes(null);
 
     if (res.success) {
       setFeedback({ type: 'success', message: 'Reserva cancelada exitosamente.' });
@@ -150,7 +153,7 @@ export default function UpcomingReservations({
           <h2 className="text-base font-bold text-slate-900">Próximas Reservas</h2>
           <p className="text-xs text-slate-500">
             {isMaster || currentUserRole === 'ADMIN'
-              ? 'Listado detallado de reservas con opciones de gestión.'
+              ? 'Listado de reservas activas.'
               : 'Tus próximas reservas programadas.'}
           </p>
         </div>
@@ -251,7 +254,7 @@ export default function UpcomingReservations({
 
                       {/* Botón Eliminar */}
                       <button
-                        onClick={() => handleDelete(res.id)}
+                        onClick={() => setCancelingRes(res)}
                         disabled={loadingId === res.id}
                         className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer disabled:opacity-50"
                         title="Cancelar Reserva"
@@ -266,6 +269,53 @@ export default function UpcomingReservations({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {cancelingRes && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-reservation-title"
+            className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-sm w-full p-6 space-y-5"
+          >
+            <div className="border-b border-slate-100 pb-3">
+              <h3 id="cancel-reservation-title" className="text-base font-bold text-slate-900">
+                Cancelar reserva
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                ¿Confirmas que deseas cancelar esta reserva?
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-1">
+              <p className="text-xs font-semibold text-slate-900">{cancelingRes.titulo}</p>
+              <p className="text-[11px] text-slate-600">
+                {cancelingRes.recurso || 'SALA'} · {formatDate(cancelingRes.startTime)} ·{' '}
+                {formatTime(cancelingRes.startTime)} - {formatTime(cancelingRes.endTime)}
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCancelingRes(null)}
+                disabled={loadingId === cancelingRes.id}
+                className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl transition cursor-pointer disabled:opacity-50"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={loadingId === cancelingRes.id}
+                className="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs py-2.5 rounded-xl transition cursor-pointer disabled:opacity-50"
+              >
+                {loadingId === cancelingRes.id ? 'Cancelando...' : 'Sí, cancelar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

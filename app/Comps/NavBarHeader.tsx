@@ -32,7 +32,7 @@ export default function NavbarHeader({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                Sistema de Reservas - {companyName}
+                Reservas - {companyName}
               </h1>
               {userRole && (
                 <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider ${
@@ -74,7 +74,7 @@ export default function NavbarHeader({
           <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
             <div className="text-right hidden md:block">
               <p className="text-xs font-bold text-slate-900">{userName}</p>
-              <p className="text-[10px] text-slate-500">{department || 'General'}</p>
+              <p className="text-[10px] text-slate-500">{department || '---'}</p>
             </div>
             <div className="h-7 w-px bg-slate-200 hidden md:block" />
             <div className="text-right">
