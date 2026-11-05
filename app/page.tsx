@@ -1,67 +1,147 @@
-import Image from "next/image";
+import { prisma } from '@/lib/prisma';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import ReservationForm from '@/app/Comps/ReservationForm';
+import UpcomingReservations from '@/app/Comps/UpcomingReservations'; 
+import WeeklyCalendar from '@/app/Comps/WeeklyCalendar';
+import NavbarHeader from '@/app/Comps/NavBarHeader';
+import WelcomeBanner from '@/app/Comps/WelcomeBanner';
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+async function checkAndResetMonthlyHours() {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const empresas = await prisma.company.findMany();
+
+  for (const comp of empresas) {
+    const updatedAt = new Date(comp.updatedAt);
+    if (updatedAt.getMonth() !== currentMonth || updatedAt.getFullYear() !== currentYear) {
+      // Si estamos en un mes nuevo y aún tienen horas registradas del mes pasado, las reiniciamos a 0
+      if (comp.horasUsadas > 0) {
+        await prisma.company.update({
+          where: { id: comp.id },
+          data: { horasUsadas: 0 },
+        });
+      }
+    }
+  }
+}
+
+export default async function HomePage() {
+  // 1. Verificación de sesión del usuario
+  const cookieStore = await cookies();
+  const sessionUserId = cookieStore.get('userId')?.value;
+
+  if (!sessionUserId) {
+    redirect('/login');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: sessionUserId },
+    include: { company: true },
+  });
+
+  if (!user || !user.isApproved || !user.company || !user.companyId) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center max-w-md">
+          <p className="text-red-600 font-semibold">Usuario no encontrado, no aprobado o sin empresa asignada.</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Verifica el estado de tu cuenta con el administrador de tu organización.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+      </div>
+    );
+  }
+
+  let horasDisponiblesMostrar = user.company.horasDisponibles;
+
+  if (user.role === 'MASTER') {
+    const todasLasEmpresas = await prisma.company.findMany({
+      select: { horasDisponibles: true },
+    });
+    horasDisponiblesMostrar = todasLasEmpresas.reduce((acc: number, curr: { horasDisponibles: number }) => acc + curr.horasDisponibles, 0);
+  }
+
+  const allReservations = await prisma.reservation.findMany({
+    include: {
+      user: {
+        include: {
+           company: true
+       }
+      },
+      company: true,
+    },
+    orderBy: {
+      startTime: 'asc',
+    },
+  });
+
+  // 5. Filtrar reservas específicas de la empresa para el listado
+  const companyReservations = user.role === 'MASTER' 
+    ? allReservations 
+    : allReservations.filter((res: { companyId: string }) => res.companyId === user.companyId);
+  const isAdmin = user.role === 'ADMIN' || user.role === 'MASTER';
+
+  const allCompaniesForMaster = user.role === 'MASTER'
+    ? await prisma.company.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } })
+    : [];
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+      {/* Header */}
+      <NavbarHeader 
+        companyName={user.company.nombre}
+        userName={user.nombre}
+        department={user.departamento}
+        horasDisponibles={horasDisponiblesMostrar}
+        userRole={user.role}
+      />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        {/* Banner de Bienvenida */}
+        <WelcomeBanner 
+          userName={user.nombre} 
+          horasDisponibles={horasDisponiblesMostrar} 
+        />
+
+        {/* Sección del Calendario Semanal con Control de Acceso por Rol */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 overflow-hidden">
+          <WeeklyCalendar 
+            reservations={allReservations} 
+            currentUserId={user.id}
+            currentUserCompanyId={user.companyId}
+            currentUserRole={user.role}
+          />
+        </section>
+
+        {/* Sección de Formulario / Lista */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Formulario de Reserva */}
+          <section className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h2 className="text-base font-bold text-slate-900">Programar Nueva Reserva</h2>
+              <p className="text-xs text-slate-500">Selecciona el rango de horario deseado.</p>
+            </div>
+            <ReservationForm 
+              userId={user.id} 
+              isMaster={user.role === 'MASTER'}
+              companies={allCompaniesForMaster}
+             />
+          </section>
+
+          {/* Lista de Próximas Reservas */}
+          <section className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <UpcomingReservations 
+              reservations={companyReservations} 
+              currentUserId={user.id} 
+              currentUserCompanyId={user.companyId}
+              currentUserRole={user.role}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </section>
+
         </div>
       </main>
     </div>
