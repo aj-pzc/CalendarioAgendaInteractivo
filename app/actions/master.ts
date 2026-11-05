@@ -10,10 +10,10 @@ async function verifyMasterSession() {
 
   const user = await prisma.user.findUnique({
     where: { id: sessionUserId },
-    select: { role: true },
+    select: { role: true, isApproved: true },
   });
 
-  return user?.role === 'MASTER' ? sessionUserId : null;
+  return user?.role === 'MASTER' && user.isApproved ? sessionUserId : null;
 }
 
 // 1. Crear Empresa

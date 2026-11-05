@@ -80,8 +80,12 @@ export async function createReservation({
     // 1. Obtener los datos del usuario actual para validar su Rol y Empresa
     const currentUser = await prisma.user.findUnique({
       where: { id: sessionUserId },
-      select: { id: true, role: true, companyId: true },
+      select: { id: true, role: true, companyId: true, isApproved: true },
     });
+
+    if (currentUser && !currentUser.isApproved) {
+      return { error: 'Tu cuenta está pendiente de aprobación.' };
+    }
 
     if (!currentUser || !currentUser.companyId) {
       return { error: 'Usuario o empresa no encontrados.' };
@@ -168,11 +172,11 @@ export async function deleteReservationAction(reservationId: string) {
 
     const currentUser = await prisma.user.findUnique({
       where: { id: sessionUserId },
-      select: { id: true, role: true, companyId: true },
+      select: { id: true, role: true, companyId: true, isApproved: true },
     });
 
-    if (!currentUser) {
-      return { error: 'Usuario no encontrado.' };
+    if (!currentUser || !currentUser.isApproved) {
+      return { error: 'Tu cuenta está pendiente de aprobación o no existe.' };
     }
 
     // Buscar la reserva existente
@@ -222,11 +226,11 @@ export async function updateReservationAction({
 
     const currentUser = await prisma.user.findUnique({
       where: { id: sessionUserId },
-      select: { id: true, role: true, companyId: true },
+      select: { id: true, role: true, companyId: true, isApproved: true },
     });
 
-    if (!currentUser) {
-      return { error: 'Usuario no encontrado.' };
+    if (!currentUser || !currentUser.isApproved) {
+      return { error: 'Tu cuenta está pendiente de aprobación o no existe.' };
     }
 
     const reservation = await prisma.reservation.findUnique({

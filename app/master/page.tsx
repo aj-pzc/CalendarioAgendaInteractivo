@@ -14,10 +14,10 @@ async function deleteUserAdminAction(formData: FormData) {
 
   const currentMaster = await prisma.user.findUnique({
     where: { id: sessionUserId },
-    select: { role: true },
+    select: { role: true, isApproved: true },
   });
 
-  if (currentMaster?.role !== 'MASTER') return;
+  if (currentMaster?.role !== 'MASTER' || !currentMaster.isApproved) return;
 
   const userId = formData.get('userId') as string;
   if (!userId || userId === sessionUserId) return;
@@ -39,10 +39,10 @@ export default async function MasterPortalPage() {
 
   const currentUser = await prisma.user.findUnique({
     where: { id: sessionUserId },
-    select: { role: true },
+    select: { role: true, isApproved: true },
   });
 
-  if (!currentUser || currentUser.role !== 'MASTER') {
+  if (!currentUser || currentUser.role !== 'MASTER' || !currentUser.isApproved) {
     redirect('/');
   }
 

@@ -11,10 +11,10 @@ export async function requireMasterApiAccess() {
 
   const user = await prisma.user.findUnique({
     where: { id: sessionUserId },
-    select: { role: true },
+    select: { role: true, isApproved: true },
   });
 
-  if (user?.role !== 'MASTER') {
+  if (user?.role !== 'MASTER' || !user.isApproved) {
     return NextResponse.json({ error: 'No tienes permisos para realizar esta acción.' }, { status: 403 });
   }
 

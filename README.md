@@ -59,4 +59,4 @@ The seed creates a master account only when the configured email and username do
 
 Do not run the seed against Railway if the master account is already present.
 
-Password self-service recovery is currently disabled until an email-based verification flow is configured.
+Password recovery requires the user's registered email and username. After changing the password, the account is marked as pending approval; the user cannot sign in or perform authenticated actions until a `MASTER` approves the account again.
