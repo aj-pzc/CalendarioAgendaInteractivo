@@ -42,6 +42,9 @@ export default function TimePickerCustom({
   };
 
   const { hourStr, minStr, period } = getTimeParts(date);
+  const resourceAccentClasses = recurso === 'SALA'
+    ? 'hover:border-amber-400 focus-within:border-amber-500 focus-within:ring-amber-700/10'
+    : 'hover:border-amber-400 focus-within:border-amber-700 focus-within:ring-amber-700/10';
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -151,7 +154,7 @@ export default function TimePickerCustom({
     <div className="relative" ref={containerRef}>
       <label className="block text-xs font-semibold text-slate-700 mb-1">{label}</label>
 
-      <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1.5 shadow-2xs hover:border-slate-300 focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10 transition">
+      <div className={`flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1.5 shadow-2xs focus-within:ring-2 transition ${resourceAccentClasses}`}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -166,7 +169,11 @@ export default function TimePickerCustom({
         <button
           type="button"
           onClick={togglePeriod}
-          className="px-2.5 py-1 bg-slate-900 text-white font-bold text-[10px] rounded-lg hover:bg-slate-800 transition cursor-pointer"
+          className={`px-2.5 py-1 font-bold text-[10px] rounded-lg transition cursor-pointer ${
+            recurso === 'SALA'
+              ? 'bg-slate-900 text-white hover:bg-slate-800'
+              : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+          }`}
         >
           {period}
         </button>
@@ -188,7 +195,9 @@ export default function TimePickerCustom({
                   onClick={() => handleSelectOption(opt.h24, opt.m)}
                   className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-lg transition cursor-pointer ${
                     isSelected
-                      ? 'bg-slate-900 text-white font-bold'
+                      ? (recurso === 'SALA'
+                        ? 'bg-slate-900 text-white font-bold'
+                        : 'bg-amber-100 text-amber-900 font-bold')
                       : 'text-slate-700 hover:bg-slate-100'
                   }`}
                 >

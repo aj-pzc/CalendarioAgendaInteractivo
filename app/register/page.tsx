@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { registerAction } from '@/app/actions/auth';
 import FormInput from '@/app/Customs/FormInput';
 import PasswordInput from '@/app/Customs//PasswordInput';
+import CCRLogo from '@/app/Comps/CCRLogo';
 
 export default function RegisterPage() {
   const [state, formAction, isPending] = useActionState(registerAction, null);
@@ -14,6 +15,7 @@ export default function RegisterPage() {
       <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
         
         <div className="text-center space-y-1">
+          <CCRLogo size={48} className="mx-auto shadow-sm ring-1 ring-amber-300/70" />
           <h1 className="text-xl font-bold text-slate-900">Crear Cuenta</h1>
           <p className="text-xs text-slate-500">Únete al sistema de reservas corporativo</p>
         </div>

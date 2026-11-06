@@ -10,6 +10,7 @@ import MasterUsersList from '@/app/master/MasterUserList';
 import CompanyManagementList from '@/app/master/CompanyManagementList';
 import { getSessionUserId } from '@/lib/session';
 import { getHoursPeriod } from '@/lib/company-hours';
+import CCRLogo from '@/app/Comps/CCRLogo';
 
 export default async function MasterPortalPage() {
   const sessionUserId = await getSessionUserId();
@@ -34,6 +35,8 @@ export default async function MasterPortalPage() {
     ...company,
     horasUsadas: company.horasPeriodo === currentHoursPeriod ? company.horasUsadas : 0,
   }));
+  const masterCompanyName = process.env.SEED_MASTER_COMPANY?.trim() || 'CCR Business';
+  const manageableCompanies = companies.filter((company) => company.nombre !== masterCompanyName);
 
   const users = await prisma.user.findMany({
     include: { company: true },
@@ -46,9 +49,7 @@ export default async function MasterPortalPage() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-slate-900 text-white font-bold rounded-xl flex items-center justify-center text-sm shadow-xs">
-              M
-            </div>
+            <CCRLogo size={36} className="ring-1 ring-amber-300/70 shadow-xs" />
             <div>
               <h1 className="text-sm font-bold text-slate-900">Portal Master (Global Admin)</h1>
               <p className="text-[11px] text-slate-500">Gestión centralizada de organizaciones y accesos</p>
@@ -91,7 +92,7 @@ export default async function MasterPortalPage() {
                 <label className="block font-semibold text-slate-700 mb-1">Bolsa de Horas Inicial</label>
                 <input
                   type="number"
-                  step="0.5"
+                  step="0.25"
                   name="horasDisponibles"
                   defaultValue="20"
                   required
@@ -115,7 +116,7 @@ export default async function MasterPortalPage() {
               <p className="text-xs text-slate-500">Supervisa las horas y gestiona las organizaciones.</p>
             </div>
 
-            <CompanyManagementList companies={companies} />
+            <CompanyManagementList companies={manageableCompanies} />
           </section>
         </div>
 

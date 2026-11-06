@@ -170,22 +170,30 @@ export default function WeeklyCalendar({
             Horarios Disponibles
           </h2>
           <p className="text-xs text-slate-500">
-            Horario hábil: 08:30 AM - 07:00 PM • Semana del{' '}
-            <strong className="text-slate-700">
-              {formatDateHeader(lunesReferencia)}
-            </strong>
+            <span className="block sm:inline">Horario hábil: 08:30 AM - 07:00 PM</span>
+            <span className="hidden sm:inline"> • </span>
+            <span className="block sm:inline">
+              Semana del{' '}
+              <strong className="text-slate-700">
+                {formatDateHeader(lunesReferencia)}
+              </strong>
+            </span>
           </p>
         </div>
 
         {/* Indicadores de Visibilidad */}
-        <div className="flex items-center gap-4 text-[11px] text-slate-500 font-medium bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-slate-600 font-medium bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-md bg-slate-900 inline-block" />
-            <span>Detalles </span>
+            <span className="w-3 h-3 rounded-md bg-amber-100 border border-amber-300 inline-block" />
+            <span>Oficina</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-md bg-slate-100 border border-slate-300 inline-block" />
-            <span>Espacio Ocupado</span>
+            <span className="w-3 h-3 rounded-md bg-slate-900 border border-amber-300 inline-block" />
+            <span>Sala</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-md bg-zinc-300 border border-zinc-400 inline-block" />
+            <span>Ocupado</span>
           </div>
         </div>
 
@@ -200,7 +208,7 @@ export default function WeeklyCalendar({
           {semanaOffset !== 0 && (
             <button
               onClick={() => setSemanaOffset(0)}
-              className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg transition cursor-pointer"
             >
               Semana Actual
             </button>
@@ -216,16 +224,27 @@ export default function WeeklyCalendar({
       </div>
 
       {/* Contenedor principal */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[650px] border border-slate-200 rounded-xl bg-white overflow-hidden">
+      <div
+        className="calendar-scrollbar-hidden overflow-auto rounded-xl border border-stone-300 bg-white"
+        style={{ height: 'min(65vh, 480px)' }}
+        role="region"
+        aria-label="Calendario semanal desplazable"
+        tabIndex={0}
+      >
+        <div className="min-w-[788px]">
           
           {/* Cabecera de días */}
-          <div className="grid grid-cols-6 bg-slate-50 border-b border-slate-200 text-center text-xs font-bold text-slate-700 py-2.5">
-            <div className="text-slate-400 font-normal self-center">Hora</div>
+          <div
+            className="sticky top-0 z-30 grid bg-zinc-100 border-b border-zinc-300 text-center text-xs font-bold text-slate-800"
+            style={{ gridTemplateColumns: '88px repeat(5, minmax(140px, 1fr))' }}
+          >
+            <div className="sticky left-0 z-40 flex items-center justify-center border-r border-zinc-300 bg-zinc-100 py-2.5 text-zinc-600 font-semibold">
+              Hora
+            </div>
             {diasSemana.map((dia, idx) => (
-              <div key={idx} className="space-y-0.5">
+              <div key={idx} className="space-y-0.5 py-2.5">
                 <div>{nombresDias[idx]}</div>
-                <div className="text-[10px] text-slate-400 font-normal">
+                <div className="text-[10px] text-zinc-600 font-semibold">
                   {dia.getDate()}/{dia.getMonth() + 1}
                 </div>
               </div>
@@ -233,14 +252,17 @@ export default function WeeklyCalendar({
           </div>
 
           {/* Cuerpo de la Cuadrícula */}
-          <div className="grid grid-cols-6 relative">
+          <div
+            className="grid relative"
+            style={{ gridTemplateColumns: '88px repeat(5, minmax(140px, 1fr))' }}
+          >
             
             {/* Columna Lateral de Horas */}
-            <div className="border-r border-slate-200 bg-slate-50/50">
+            <div className="sticky left-0 z-20 border-r border-slate-200 bg-slate-50">
               {bloquesHorarios.map((hora) => (
                 <div
                   key={hora}
-                  className="h-12 border-b border-slate-100 flex items-center justify-center text-[11px] font-mono text-slate-400"
+                  className="h-12 border-b border-slate-100 flex items-center justify-center text-[11px] font-mono font-medium text-slate-500"
                 >
                   {hora}
                 </div>
@@ -261,7 +283,7 @@ export default function WeeklyCalendar({
               const reservasDelDia = processDayReservations(rawReservasDelDia);
 
               return (
-                <div key={dayIdx} className="border-r border-slate-200 relative h-full bg-white">
+                <div key={dayIdx} className="border-r border-slate-200 relative h-[528px] overflow-hidden bg-white">
                   {/* Filas de guía transparentes */}
                   {bloquesHorarios.map((hora) => (
                     <div key={hora} className="h-12 border-b border-slate-100" />
@@ -271,12 +293,14 @@ export default function WeeklyCalendar({
                   {reservasDelDia.map((res) => {
                     const durationMinutes = res.endMin - res.startMin;
                     const isDetailed = canViewDetails(res);
-                    const isSala = res.recurso === 'SALA';
+                    const isSala = (res.recurso || 'SALA') === 'SALA';
                     
                     // Estilos según rol y visibilidad (Detallado vs Bloqueado Gris)
                     const bgClass = isDetailed
-                      ? (isSala ? 'bg-slate-900 text-white border-slate-700' : 'bg-emerald-800 text-white border-emerald-600')
-                      : 'bg-slate-100 text-slate-500 border-slate-200 select-none';
+                      ? (isSala
+                        ? 'bg-slate-900 text-white border-amber-300'
+                        : 'bg-amber-100 text-amber-900 border-amber-300')
+                      : 'bg-zinc-300 text-zinc-700 border-zinc-400 select-none';
 
                     const startHour = res.startMin / 60;
                     const topRatio = Math.max(0, (startHour - HORARIO_INICIO) / DURACION_TOTAL_HORAS);
@@ -294,7 +318,7 @@ export default function WeeklyCalendar({
                           left: `${(res.colIndex * 100) / res.totalCols}%`,
                           width: `calc(${100 / res.totalCols}% - 3px)`,
                         }}
-                        className={`absolute rounded-md border shadow-2xs overflow-hidden flex flex-col justify-center px-1.5 py-0.5 hover:z-30 transition-all ${bgClass}`}
+                        className={`absolute z-0 rounded-md border shadow-2xs overflow-hidden flex flex-col justify-center px-1.5 py-0.5 hover:z-10 transition-all ${bgClass}`}
                         title={isDetailed ? `${res.titulo} (${formatTime(res.startTime)} - ${formatTime(res.endTime)})` : recursoLabel}
                       >
                         {isDetailed ? (
@@ -320,7 +344,7 @@ export default function WeeklyCalendar({
                         ) : (
                           /* VISTA ANONIMIZADA (Bloque Gris con indicador del recurso) */
                           <div className="flex items-center justify-between h-full px-1">
-                            <span className="font-semibold text-[10px] italic text-slate-600 truncate">
+                            <span className="font-semibold text-[10px] italic text-zinc-700 truncate">
                               🔒 {recursoLabel}
                             </span>
                           </div>

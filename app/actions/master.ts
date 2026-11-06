@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getSessionUserId } from '@/lib/session';
 import { getHoursPeriod, lockAndGetCompanyHours } from '@/lib/company-hours';
+import bcrypt from 'bcrypt';
 
 async function verifyMasterSession() {
   const sessionUserId = await getSessionUserId();
@@ -15,6 +16,19 @@ async function verifyMasterSession() {
   });
 
   return user?.role === 'MASTER' && user.isApproved ? sessionUserId : null;
+}
+
+async function getApprovedAdminSession() {
+  const sessionUserId = await getSessionUserId();
+  if (!sessionUserId) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: sessionUserId },
+    select: { role: true, isApproved: true, companyId: true },
+  });
+  return user?.role === 'ADMIN' && user.isApproved && user.companyId
+    ? { id: sessionUserId, companyId: user.companyId }
+    : null;
 }
 
 // 1. Crear Empresa
@@ -95,6 +109,40 @@ export async function updateCompanyHoursAction(formData: FormData) {
   }
 }
 
+export async function updateCompanyNameAction(formData: FormData) {
+  const isMaster = await verifyMasterSession();
+  if (!isMaster) return { error: 'No tienes permisos para modificar empresas.' };
+
+  const companyId = formData.get('companyId');
+  const nombre = formData.get('nombre');
+  if (typeof companyId !== 'string' || !companyId || typeof nombre !== 'string' || !nombre.trim()) {
+    return { error: 'El nombre de la empresa es obligatorio.' };
+  }
+
+  const normalizedName = nombre.trim();
+  try {
+    const existingCompany = await prisma.company.findFirst({
+      where: { nombre: normalizedName, id: { not: companyId } },
+      select: { id: true },
+    });
+    if (existingCompany) return { error: 'Ya existe una empresa con ese nombre.' };
+
+    await prisma.company.update({
+      where: { id: companyId },
+      data: { nombre: normalizedName },
+    });
+    revalidatePath('/master');
+    revalidatePath('/');
+    revalidatePath('/reservar');
+    revalidatePath('/proximas');
+    revalidatePath('/cuenta');
+    return { success: true };
+  } catch (error) {
+    console.error('Error al cambiar el nombre de la empresa:', error);
+    return { error: 'No se pudo actualizar el nombre de la empresa.' };
+  }
+}
+
 // 3. Eliminar Empresa (con borrado en cascada manual o nativo de BD)
 export async function deleteCompanyAction(formData: FormData) {
   const isMaster = await verifyMasterSession();
@@ -156,30 +204,125 @@ export async function updateUserAdminAction(formData: FormData) {
   const isApproved = formData.get('isApproved') === 'true';
   const role = formData.get('role');
   const companyId = formData.get('companyId');
+  const username = formData.get('username');
+  const email = formData.get('email');
+  const newPassword = formData.get('newPassword');
 
   if (
     typeof userId !== 'string' ||
     !userId ||
     typeof role !== 'string' ||
     !['USER', 'ADMIN', 'MASTER'].includes(role) ||
-    typeof companyId !== 'string'
+    typeof companyId !== 'string' ||
+    typeof username !== 'string' ||
+    typeof email !== 'string' ||
+    typeof newPassword !== 'string'
   ) {
     return { error: 'Los datos del usuario no son válidos.' };
   }
 
+  const normalizedUsername = username.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedUsername || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return { error: 'El usuario y el correo electrónico son obligatorios y deben ser válidos.' };
+  }
+  if (newPassword && newPassword.length < 8) {
+    return { error: 'La contraseña debe tener al menos 8 caracteres.' };
+  }
+
   try {
+    const [existingUsername, existingEmail] = await Promise.all([
+      prisma.user.findFirst({
+        where: { username: normalizedUsername, id: { not: userId } },
+        select: { id: true },
+      }),
+      prisma.user.findFirst({
+        where: { email: normalizedEmail, id: { not: userId } },
+        select: { id: true },
+      }),
+    ]);
+    if (existingUsername) return { error: 'Ese nombre de usuario ya está en uso.' };
+    if (existingEmail) return { error: 'Ese correo electrónico ya está registrado.' };
+
     await prisma.user.update({
       where: { id: userId },
       data: {
+        username: normalizedUsername,
+        email: normalizedEmail,
         companyId: companyId || null,
         role,
         isApproved,
+        ...(newPassword ? { passwordHash: await bcrypt.hash(newPassword, 12) } : {}),
       },
     });
     revalidatePath('/');
+    revalidatePath('/master');
     return { success: true };
-    
   } catch (error) {
     console.error('Error al actualizar usuario:', error);
+    return { error: 'No se pudo actualizar el usuario.' };
+  }
+}
+
+export async function updateCompanyUserCredentialsAction(formData: FormData) {
+  const admin = await getApprovedAdminSession();
+  if (!admin) return { error: 'No tienes permiso para modificar estas cuentas.' };
+
+  const userId = formData.get('userId');
+  const username = formData.get('username');
+  const email = formData.get('email');
+  const newPassword = formData.get('newPassword');
+
+  if (
+    typeof userId !== 'string' || !userId ||
+    typeof username !== 'string' ||
+    typeof email !== 'string' ||
+    typeof newPassword !== 'string'
+  ) {
+    return { error: 'Los datos enviados no son válidos.' };
+  }
+
+  const normalizedUsername = username.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedUsername || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return { error: 'El usuario y el correo electrónico deben ser válidos.' };
+  }
+  if (newPassword && newPassword.length < 8) {
+    return { error: 'La contraseña debe tener al menos 8 caracteres.' };
+  }
+
+  try {
+    const [existingUsername, existingEmail] = await Promise.all([
+      prisma.user.findFirst({
+        where: { username: normalizedUsername, id: { not: userId } },
+        select: { id: true },
+      }),
+      prisma.user.findFirst({
+        where: { email: normalizedEmail, id: { not: userId } },
+        select: { id: true },
+      }),
+    ]);
+    if (existingUsername) return { error: 'Ese nombre de usuario ya está en uso.' };
+    if (existingEmail) return { error: 'Ese correo electrónico ya está registrado.' };
+
+    const updated = await prisma.user.updateMany({
+      where: { id: userId, companyId: admin.companyId, role: 'USER' },
+      data: {
+        username: normalizedUsername,
+        email: normalizedEmail,
+        ...(newPassword ? { passwordHash: await bcrypt.hash(newPassword, 12) } : {}),
+      },
+    });
+    if (updated.count !== 1) {
+      return { error: 'No se encontró un usuario editable de tu empresa.' };
+    }
+
+    revalidatePath('/usuarios');
+    revalidatePath('/master');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Error al actualizar la cuenta de usuario:', error);
+    return { error: 'No se pudo actualizar la cuenta. Inténtalo nuevamente.' };
   }
 }

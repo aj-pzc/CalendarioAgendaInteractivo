@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { loginAction } from '@/app/actions/auth';
 import FormInput from '@/app/Customs/FormInput';
 import PasswordInput from '@/app/Customs//PasswordInput';
+import CCRLogo from '@/app/Comps/CCRLogo';
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, null);
@@ -14,9 +15,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
         
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 bg-slate-900 text-white font-bold rounded-xl mx-auto flex items-center justify-center text-xl shadow-sm">
-            S
-          </div>
+          <CCRLogo size={48} className="mx-auto shadow-sm ring-1 ring-amber-300/70" />
           <h1 className="text-xl font-bold text-slate-900">Iniciar Sesión</h1>
           <p className="text-xs text-slate-500">Sistema de Reservas Corporativas</p>
         </div>

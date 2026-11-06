@@ -147,8 +147,8 @@ export default function UpcomingReservations({
   );
 
   return (
-    <div className="space-y-4">
-      <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col space-y-4">
+      <div className="border-b border-amber-100 pb-3 flex items-center justify-between">
         <div>
           <h2 className="text-base font-bold text-slate-900">Próximas Reservas</h2>
           <p className="text-xs text-slate-500">
@@ -157,7 +157,7 @@ export default function UpcomingReservations({
               : 'Tus próximas reservas programadas.'}
           </p>
         </div>
-        <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
+        <span className="text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-lg">
           {sortedReservations.length} {sortedReservations.length === 1 ? 'Reserva' : 'Reservas'}
         </span>
       </div>
@@ -166,7 +166,7 @@ export default function UpcomingReservations({
         <div
           className={`p-3 rounded-xl text-xs font-medium flex items-center justify-between ${
             feedback.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              ? 'bg-amber-50 text-amber-900 border border-amber-200'
               : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}
         >
@@ -182,22 +182,24 @@ export default function UpcomingReservations({
           No hay próximas reservas registradas.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="ccr-scroll-list min-h-0 max-h-[24rem] flex-1 space-y-3 overflow-y-auto pr-2">
           {sortedReservations.map((res) => {
             const isMyOwn = res.userId === currentUserId;
-            const isSala = res.recurso === 'SALA';
+            const isSala = (res.recurso || 'SALA') === 'SALA';
             const allowManage = canManage(res);
 
             return (
               <div
                 key={res.id}
-                className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="min-h-24 p-4 rounded-2xl border border-stone-200 bg-white hover:border-amber-300 transition shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                        isSala ? 'bg-slate-900 text-white' : 'bg-emerald-800 text-white'
+                        isSala
+                          ? 'bg-slate-900 text-white border border-amber-300'
+                          : 'bg-amber-100 text-amber-900 border border-amber-300'
                       }`}
                     >
                       {res.recurso || 'SALA'}
@@ -206,7 +208,7 @@ export default function UpcomingReservations({
                     <h3 className="text-xs font-bold text-slate-900">{res.titulo}</h3>
 
                     {isMyOwn && (
-                      <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md">
                         Tuya
                       </span>
                     )}
@@ -244,7 +246,7 @@ export default function UpcomingReservations({
                       {/* Botón Modificar */}
                       <button
                         onClick={() => handleOpenEditModal(res)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition cursor-pointer"
                         title="Modificar Reserva"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -336,7 +338,11 @@ export default function UpcomingReservations({
                   required
                   value={editTitulo}
                   onChange={(e) => setEditTitulo(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white font-medium text-slate-900"
+                  className={`w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 bg-white font-medium text-slate-900 ${
+                    editRecurso === 'SALA'
+                      ? 'focus:ring-slate-900/10 focus:border-amber-400'
+                      : 'focus:ring-amber-700/10 focus:border-amber-700'
+                  }`}
                 />
               </div>
 
@@ -348,8 +354,8 @@ export default function UpcomingReservations({
                     onClick={() => setEditRecurso('SALA')}
                     className={`py-2 px-3 text-xs font-semibold rounded-xl border transition cursor-pointer ${
                       editRecurso === 'SALA'
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        ? 'bg-slate-900 text-white border-amber-400'
+                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     Sala de Juntas
@@ -359,8 +365,8 @@ export default function UpcomingReservations({
                     onClick={() => setEditRecurso('OFICINA')}
                     className={`py-2 px-3 text-xs font-semibold rounded-xl border transition cursor-pointer ${
                       editRecurso === 'OFICINA'
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        ? 'bg-amber-100 text-amber-900 border-amber-300'
+                        : 'bg-white text-slate-600 border-amber-300 hover:bg-amber-50'
                     }`}
                   >
                     Oficina
@@ -374,6 +380,7 @@ export default function UpcomingReservations({
                 openUp={true}
                 onChange={(date) => setEditFecha(date)}
                 minDate={isMaster ? undefined : new Date()}
+                recurso={editRecurso}
               />
 
               <div className="grid grid-cols-2 gap-3">

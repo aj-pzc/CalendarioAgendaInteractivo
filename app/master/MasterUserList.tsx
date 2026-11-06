@@ -49,6 +49,8 @@ export default function MasterUsersList({
   const [deletingUser, setDeletingUser] = useState<UserItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleOpenModal = (e: React.FormEvent<HTMLFormElement>, userName: string, userId: string) => {
     e.preventDefault();
@@ -61,17 +63,28 @@ export default function MasterUsersList({
       userName,
       formData,
     });
+    setUpdateError(null);
   };
 
   const handleConfirmUpdate = async () => {
     if (!modalData.formData) return;
 
+    setIsUpdating(true);
+    setUpdateError(null);
     try {
-      await updateAction(modalData.formData);
+      const result = await updateAction(modalData.formData);
+      if (result?.error) {
+        setUpdateError(result.error);
+        setModalData({ isOpen: false, userId: '', userName: '', formData: null });
+        return;
+      }
+      setModalData({ isOpen: false, userId: '', userName: '', formData: null });
+      setUpdateError(null);
     } catch (error) {
       console.error('Error al actualizar:', error);
+      setUpdateError('Ocurrió un error al guardar los cambios.');
     } finally {
-      setModalData({ isOpen: false, userId: '', userName: '', formData: null });
+      setIsUpdating(false);
     }
   };
 
@@ -99,123 +112,156 @@ export default function MasterUsersList({
   };
 
   return (
-    <div className="space-y-4">
-      {users.map((u) => {
-        const isSelf = u.id === currentSessionUserId;
+    <>
+      {updateError && (
+        <p role="alert" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+          {updateError}
+        </p>
+      )}
+      <div className="ccr-scroll-list max-h-[36rem] space-y-3 overflow-y-auto pr-2 md:max-h-[20rem]">
+        {users.map((u) => {
+          const isSelf = u.id === currentSessionUserId;
 
-        return (
-          <div
-            key={u.id}
-            className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-          >
-            {/* Datos del Usuario */}
-            <div className="space-y-0.5 min-w-[220px]">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-slate-900">{u.nombre}</h3>
-                {isSelf && (
-                  <span className="text-[9px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded font-bold">
-                    Tú
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-500">@{u.username} • {u.email}</p>
-              <p className="text-[11px] font-medium text-slate-600">
-                Depto: <span className="text-slate-800">{u.departamento || 'General'}</span>
-              </p>
-            </div>
-
-            {/* Controles Centrales (Empresa, Rol, Estatus y Guardar) */}
-            <form 
-              onSubmit={(e) => handleOpenModal(e, u.nombre, u.id)} 
-              className="flex flex-wrap items-center gap-2.5 w-full md:w-auto"
+          return (
+            <form
+              key={u.id}
+              id={`user-edit-${u.id}`}
+              onSubmit={(e) => handleOpenModal(e, u.nombre, u.id)}
+              className="grid gap-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-2xs transition hover:border-amber-300 lg:grid-cols-[minmax(10rem,0.6fr)_minmax(0,2.8fr)_minmax(8rem,auto)] lg:items-center"
             >
               <input type="hidden" name="userId" value={u.id} />
 
-              {/* 1. Selector de Empresa */}
-              <div className="w-40">
-                <CustomSelect
-                  name="companyId"
-                  value={u.companyId || ''}
-                  options={[
-                    { value: '', label: 'Sin Empresa' },
-                    ...companies.map((c) => ({ value: c.id, label: c.nombre }))
-                  ]}
-                  placeholder="Sin Empresa"
-                />
-              </div>          
+              <div className="flex min-w-0 flex-col justify-center space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-slate-900">{u.nombre}</h3>
+                  {isSelf && (
+                    <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-900">
+                      Tú
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">@{u.username}</p>
+                <p className="break-all text-[11px] text-slate-500">{u.email}</p>
+                <p className="text-[11px] font-medium text-slate-600">
+                  Depto: <span className="text-slate-800">{u.departamento || 'General'}</span>
+                </p>
+              </div>
 
-              {/* 2. Selector de Rol */}
-              <div className="w-32">
-                <CustomSelect
-                  name="role"
-                  value={u.role}
-                  options={[
-                    { value: 'USER', label: 'USER' },
-                    { value: 'ADMIN', label: 'ADMIN' },
-                    { value: 'MASTER', label: 'MASTER' },
-                  ]}
-                  buttonClassName={
-                    u.role === 'MASTER'
-                      ? 'bg-purple-50 text-purple-800 border-purple-200'
-                      : u.role === 'ADMIN'
-                      ? 'bg-blue-50 text-blue-800 border-blue-200'
-                      : 'bg-slate-50/50 text-slate-700 border-slate-200'
-                  }
-                />
-              </div>         
+              <div className="grid min-w-0 gap-2.5">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <label className="text-[10px] font-semibold text-slate-600">
+                    Nombre de usuario
+                    <input
+                      name="username"
+                      defaultValue={u.username}
+                      required
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-900 focus:border-amber-600 focus:outline-none"
+                    />
+                  </label>
+                  <label className="text-[10px] font-semibold text-slate-600">
+                    Correo electrónico
+                    <input
+                      name="email"
+                      type="email"
+                      defaultValue={u.email}
+                      required
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-900 focus:border-amber-600 focus:outline-none"
+                    />
+                  </label>
+                  <label className="text-[10px] font-semibold text-slate-600">
+                    Nueva contraseña
+                    <input
+                      name="newPassword"
+                      type="password"
+                      minLength={8}
+                      autoComplete="new-password"
+                      placeholder="Opcional"
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-900 focus:border-amber-600 focus:outline-none"
+                    />
+                  </label>
+                </div>
 
-              {/* 3. Selector de Aprobación */}
-              <div className="w-32">
-                <CustomSelect
-                  name="isApproved"
-                  value={String(u.isApproved)}
-                  options={[
-                    { value: 'true', label: 'Aprobado' },
-                    { value: 'false', label: 'Pendiente' },
-                  ]}
-                  buttonClassName={
-                    u.isApproved 
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }
-                />
-              </div>             
-              
-              {/* Botón Guardar Cambios (Altura unificada a 34px) */}
-              <div>
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.75fr)_minmax(8rem,0.9fr)]">
+                  <div>
+                    <span className="mb-1 block text-[10px] font-semibold text-slate-600">Empresa</span>
+                    <CustomSelect
+                      name="companyId"
+                      value={u.companyId || ''}
+                      options={[
+                        { value: '', label: 'Sin Empresa' },
+                        ...companies.map((c) => ({ value: c.id, label: c.nombre }))
+                      ]}
+                      placeholder="Sin Empresa"
+                    />
+                  </div>
+
+                  <div>
+                    <span className="mb-1 block text-[10px] font-semibold text-slate-600">Rol</span>
+                    <CustomSelect
+                      name="role"
+                      value={u.role}
+                      options={[
+                        { value: 'USER', label: 'USER' },
+                        { value: 'ADMIN', label: 'ADMIN' },
+                        { value: 'MASTER', label: 'MASTER' },
+                      ]}
+                      buttonClassName={
+                        u.role === 'MASTER'
+                          ? 'bg-amber-50 text-amber-900 border-amber-300'
+                          : u.role === 'ADMIN'
+                          ? 'bg-orange-100 text-orange-900 border-orange-300'
+                          : 'bg-zinc-50 text-zinc-700 border-zinc-200'
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <span className="mb-1 block text-[10px] font-semibold text-slate-600">Aprobación</span>
+                    <CustomSelect
+                      name="isApproved"
+                      value={String(u.isApproved)}
+                      options={[
+                        { value: 'true', label: 'Aprobado' },
+                        { value: 'false', label: 'Pendiente' },
+                      ]}
+                      buttonClassName={
+                        u.isApproved
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 lg:justify-self-end">
                 <button
                   type="submit"
-                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl transition shadow-2xs cursor-pointer h-[34px] flex items-center justify-center"
+                  className="flex h-[34px] items-center justify-center rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition hover:bg-slate-800"
                 >
                   Guardar
                 </button>
+                {!isSelf ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeletingUser(u);
+                    }}
+                    className="flex h-[34px] w-[34px] items-center justify-center rounded-xl border border-stone-200 p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                    title="Eliminar usuario"
+                    aria-label={`Eliminar usuario ${u.nombre}`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                ) : null}
               </div>
             </form>
-
-            {/* Botón Eliminar */}
-            <div className="self-end md:self-center min-w-[34px] flex justify-center">
-              {!isSelf ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteError(null);
-                    setDeletingUser(u);
-                  }}
-                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-slate-200 transition cursor-pointer flex items-center justify-center h-[34px] w-[34px]"
-                  title="Eliminar usuario"
-                  aria-label={`Eliminar usuario ${u.nombre}`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              ) : (
-                <div className="w-[34px]" />
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
       {/* Modal de Confirmación de Cambios */}
       {modalData.isOpen && (
@@ -230,6 +276,7 @@ export default function MasterUsersList({
               <button
                 type="button"
                 onClick={() => setModalData({ isOpen: false, userId: '', userName: '', formData: null })}
+                disabled={isUpdating}
                 className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl transition cursor-pointer"
               >
                 Cancelar
@@ -237,9 +284,10 @@ export default function MasterUsersList({
               <button
                 type="button"
                 onClick={handleConfirmUpdate}
+                disabled={isUpdating}
                 className="w-1/2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-xs cursor-pointer"
               >
-                Confirmar
+                {isUpdating ? 'Guardando...' : 'Confirmar'}
               </button>
             </div>
           </div>
@@ -297,6 +345,6 @@ export default function MasterUsersList({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

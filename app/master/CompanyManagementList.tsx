@@ -1,7 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { deleteCompanyAction, updateCompanyHoursAction } from '@/app/actions/master';
+import {
+  deleteCompanyAction,
+  updateCompanyHoursAction,
+  updateCompanyNameAction,
+} from '@/app/actions/master';
+import CustomSelect from '@/app/Customs/CustomSelect';
 
 interface CompanyItem {
   id: string;
@@ -16,31 +21,69 @@ export default function CompanyManagementList({ companies }: { companies: Compan
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [adjustingCompanyId, setAdjustingCompanyId] = useState<string | null>(null);
-  const [hoursFeedback, setHoursFeedback] = useState<{ companyId: string; message: string; error: boolean } | null>(null);
+  const [hoursFeedback, setHoursFeedback] = useState<{ message: string; error: boolean } | null>(null);
+  const [hoursActions, setHoursActions] = useState<Record<string, string>>({});
+  const [renamingCompanyId, setRenamingCompanyId] = useState<string | null>(null);
+  const [nameFeedback, setNameFeedback] = useState<Record<string, { message: string; error: boolean }>>({});
 
-  const handleUpdateHours = async (event: React.FormEvent<HTMLFormElement>, companyId: string) => {
+  const handleUpdateHours = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (adjustingCompanyId) return;
+
+    const formData = new FormData(event.currentTarget);
+    const companyId = formData.get('companyId');
+    if (typeof companyId !== 'string' || !companyId) {
+      setHoursFeedback({ message: 'No se pudo identificar la empresa.', error: true });
+      return;
+    }
 
     setAdjustingCompanyId(companyId);
     setHoursFeedback(null);
 
     try {
-      const result = await updateCompanyHoursAction(new FormData(event.currentTarget));
+      const result = await updateCompanyHoursAction(formData);
       if (result?.error) {
-        setHoursFeedback({ companyId, message: result.error, error: true });
+        setHoursFeedback({ message: result.error, error: true });
       } else {
-        setHoursFeedback({ companyId, message: 'Balance actualizado.', error: false });
+        setHoursFeedback({ message: 'Balance actualizado.', error: false });
       }
     } catch (error) {
       console.error('Error al ajustar horas de la empresa:', error);
       setHoursFeedback({
-        companyId,
         message: 'No se pudieron actualizar las horas. Inténtalo nuevamente.',
         error: true,
       });
     } finally {
       setAdjustingCompanyId(null);
+    }
+  };
+
+  const handleUpdateCompanyName = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (renamingCompanyId) return;
+
+    const formData = new FormData(event.currentTarget);
+    const companyId = formData.get('companyId');
+    if (typeof companyId !== 'string' || !companyId) return;
+
+    setRenamingCompanyId(companyId);
+    setNameFeedback((feedback) => ({ ...feedback, [companyId]: { message: '', error: false } }));
+    try {
+      const result = await updateCompanyNameAction(formData);
+      setNameFeedback((feedback) => ({
+        ...feedback,
+        [companyId]: result?.error
+          ? { message: result.error, error: true }
+          : { message: 'Nombre actualizado.', error: false },
+      }));
+    } catch (error) {
+      console.error('Error al renombrar empresa:', error);
+      setNameFeedback((feedback) => ({
+        ...feedback,
+        [companyId]: { message: 'No se pudo actualizar el nombre. Inténtalo nuevamente.', error: true },
+      }));
+    } finally {
+      setRenamingCompanyId(null);
     }
   };
 
@@ -69,14 +112,51 @@ export default function CompanyManagementList({ companies }: { companies: Compan
 
   return (
     <>
-      <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+      {hoursFeedback && (
+        <div
+          role={hoursFeedback.error ? 'alert' : 'status'}
+          className={`rounded-xl border px-3 py-2 text-xs ${
+            hoursFeedback.error
+              ? 'border-rose-200 bg-rose-50 text-rose-800'
+              : 'border-amber-200 bg-amber-50 text-amber-900'
+          }`}
+        >
+          {hoursFeedback.message}
+        </div>
+      )}
+      <div className="ccr-scroll-list max-h-[36rem] space-y-3 overflow-y-auto pr-2 md:max-h-[20rem]">
         {companies.map((comp) => (
           <div
             key={comp.id}
-            className="p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50/50"
+            className="min-h-24 p-4 rounded-xl border border-stone-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-stone-50"
           >
-            <div>
-              <h3 className="text-xs font-bold text-slate-900">{comp.nombre}</h3>
+            <div className="min-w-0 flex-1">
+              <form onSubmit={handleUpdateCompanyName} className="flex items-center gap-2">
+                <input type="hidden" name="companyId" value={comp.id} />
+                <input
+                  type="text"
+                  name="nombre"
+                  defaultValue={comp.nombre}
+                  required
+                  aria-label={`Nombre de empresa ${comp.nombre}`}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:border-amber-600 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={renamingCompanyId !== null}
+                  className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {renamingCompanyId === comp.id ? '...' : 'Guardar'}
+                </button>
+              </form>
+              {nameFeedback[comp.id]?.message && (
+                <p
+                  role={nameFeedback[comp.id].error ? 'alert' : 'status'}
+                  className={`mt-1 text-[10px] ${nameFeedback[comp.id].error ? 'text-rose-700' : 'text-emerald-700'}`}
+                >
+                  {nameFeedback[comp.id].message}
+                </p>
+              )}
               <p className="text-[11px] text-slate-500">
                 {comp._count.users} usuarios • {comp._count.reservations} reservas
               </p>
@@ -99,7 +179,7 @@ export default function CompanyManagementList({ companies }: { companies: Compan
               </div>
 
               <form
-                onSubmit={(event) => handleUpdateHours(event, comp.id)}
+                onSubmit={handleUpdateHours}
                 className="flex items-center gap-1"
               >
                 <input type="hidden" name="companyId" value={comp.id} />
@@ -112,15 +192,19 @@ export default function CompanyManagementList({ companies }: { companies: Compan
                   required
                   className="w-14 px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-center font-medium"
                 />
-                <select
+                <CustomSelect
                   name="tipoAccion"
-                  className="text-[10px] font-bold rounded-lg border border-slate-200 bg-white p-1"
-                >
-                  <option value="SUMAR_DISPONIBLES">+ Disp</option>
-                  <option value="RESTAR_DISPONIBLES">- Disp</option>
-                  <option value="SUMAR_USADAS">+ Usadas</option>
-                  <option value="RESTAR_USADAS">- Usadas</option>
-                </select>
+                  value={hoursActions[comp.id] || 'SUMAR_DISPONIBLES'}
+                  onChange={(value) => setHoursActions((actions) => ({ ...actions, [comp.id]: value }))}
+                  options={[
+                    { value: 'SUMAR_DISPONIBLES', label: '+ Bolsa' },
+                    { value: 'RESTAR_DISPONIBLES', label: '- Bolsa' },
+                    { value: 'SUMAR_USADAS', label: '+ Usadas' },
+                    { value: 'RESTAR_USADAS', label: '- Usadas' },
+                  ]}
+                  className="w-28"
+                  buttonClassName="border-amber-200 bg-white text-slate-700 hover:border-amber-500"
+                />
                 <button
                   type="submit"
                   disabled={adjustingCompanyId !== null}
@@ -150,14 +234,6 @@ export default function CompanyManagementList({ companies }: { companies: Compan
                 </svg>
               </button>
             </div>
-            {hoursFeedback?.companyId === comp.id && (
-              <p
-                role={hoursFeedback.error ? 'alert' : 'status'}
-                className={`w-full text-[11px] ${hoursFeedback.error ? 'text-rose-700' : 'text-emerald-700'}`}
-              >
-                {hoursFeedback.message}
-              </p>
-            )}
           </div>
         ))}
       </div>

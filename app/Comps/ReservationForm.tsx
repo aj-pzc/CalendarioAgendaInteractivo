@@ -319,7 +319,11 @@
                 placeholder="Ej. Revisión Trimestral de Proyecto"
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
-                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition bg-white"
+                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 transition bg-white ${
+                  recurso === 'SALA'
+                    ? 'focus:ring-slate-900/10 focus:border-amber-400'
+                    : 'focus:ring-amber-700/10 focus:border-amber-700'
+                }`}
               />
             </div>
 
@@ -333,8 +337,8 @@
                   onClick={() => setRecurso('SALA')}
                   className={`py-2 px-3 text-xs font-semibold rounded-xl border transition cursor-pointer ${
                     recurso === 'SALA'
-                      ? 'bg-slate-900 text-white border-slate-900'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-slate-900 text-white border-amber-400'
+                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   Sala de Juntas
@@ -344,8 +348,8 @@
                   onClick={() => setRecurso('OFICINA')}
                   className={`py-2 px-3 text-xs font-semibold rounded-xl border transition cursor-pointer ${
                     recurso === 'OFICINA'
-                      ? 'bg-slate-900 text-white border-slate-900'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-white text-slate-600 border-amber-300 hover:bg-amber-50'
                   }`}
                 >
                   Oficina
@@ -370,8 +374,10 @@
             <DatePickerCustom
               label="Fecha de Reserva"
               value={fechaSeleccionada}
+              openUp={true}
               onChange={handleDateChange}
               minDate={isMaster ? undefined : new Date()}
+              recurso={recurso}
             />
 
             <button
@@ -384,11 +390,19 @@
           </form>
         ) : (
           <form onSubmit={handleOpenConfirmation} className="space-y-4">
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+            <div className={`p-3 rounded-xl border space-y-1 ${
+              recurso === 'SALA'
+                ? 'bg-slate-50 border-amber-200'
+                : 'bg-amber-50/50 border-amber-200'
+            }`}>
               <p className="text-[11px] text-slate-500">Resumen parcial:</p>
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-slate-900 truncate">{titulo}</p>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-800 rounded-md">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                  recurso === 'SALA'
+                    ? 'bg-amber-100 text-amber-900'
+                    : 'bg-amber-100 text-amber-900'
+                }`}>
                   {recurso === 'SALA' ? 'Sala' : 'Oficina'}
                 </span>
               </div>
