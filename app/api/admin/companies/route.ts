@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireMasterApiAccess } from '@/lib/api-auth';
+import { getHoursPeriod } from '@/lib/company-hours';
 
 export async function GET() {
   const accessError = await requireMasterApiAccess();
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
       data: {
         nombre: nombre.trim(),
         horasDisponibles: parsedHours,
+        horasPeriodo: getHoursPeriod(),
       },
     });
 

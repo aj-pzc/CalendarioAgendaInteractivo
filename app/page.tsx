@@ -6,27 +6,7 @@ import UpcomingReservations from '@/app/Comps/UpcomingReservations';
 import WeeklyCalendar from '@/app/Comps/WeeklyCalendar';
 import NavbarHeader from '@/app/Comps/NavBarHeader';
 import WelcomeBanner from '@/app/Comps/WelcomeBanner';
-
-
-async function checkAndResetMonthlyHours() {
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-  const empresas = await prisma.company.findMany();
-
-  for (const comp of empresas) {
-    const updatedAt = new Date(comp.updatedAt);
-    if (updatedAt.getMonth() !== currentMonth || updatedAt.getFullYear() !== currentYear) {
-      // Si estamos en un mes nuevo y aún tienen horas registradas del mes pasado, las reiniciamos a 0
-      if (comp.horasUsadas > 0) {
-        await prisma.company.update({
-          where: { id: comp.id },
-          data: { horasUsadas: 0 },
-        });
-      }
-    }
-  }
-}
+import { isCurrentHoursPeriod, roundHours } from '@/lib/company-hours';
 
 export default async function HomePage() {
   // 1. Verificación de sesión del usuario
@@ -54,14 +34,35 @@ export default async function HomePage() {
     );
   }
 
-  let horasDisponiblesMostrar = user.company.horasDisponibles;
+  const now = new Date();
+  const companyHoursUsed = isCurrentHoursPeriod(user.company.horasPeriodo, now)
+    ? user.company.horasUsadas
+    : 0;
+  const horasRestantesEmpresa = roundHours(user.company.horasDisponibles - companyHoursUsed);
+  let allCompaniesForMaster: { id: string; nombre: string; horasRestantes: number }[] = [];
+  let horasRestantesMostrar = horasRestantesEmpresa;
 
   if (user.role === 'MASTER') {
     const todasLasEmpresas = await prisma.company.findMany({
-      select: { horasDisponibles: true },
+      select: { id: true, nombre: true, horasDisponibles: true, horasUsadas: true, horasPeriodo: true },
+      orderBy: { nombre: 'asc' },
     });
-    horasDisponiblesMostrar = todasLasEmpresas.reduce((acc: number, curr: { horasDisponibles: number }) => acc + curr.horasDisponibles, 0);
+    allCompaniesForMaster = todasLasEmpresas.map((company) => {
+      const horasUsadas = isCurrentHoursPeriod(company.horasPeriodo, now)
+        ? company.horasUsadas
+        : 0;
+      return {
+        id: company.id,
+        nombre: company.nombre,
+        horasRestantes: roundHours(company.horasDisponibles - horasUsadas),
+      };
+    });
+    horasRestantesMostrar = allCompaniesForMaster.reduce(
+      (total, company) => total + company.horasRestantes,
+      0
+    );
   }
+  horasRestantesMostrar = roundHours(horasRestantesMostrar);
 
   const allReservations = await prisma.reservation.findMany({
     where: { estado: { not: 'CANCELADA' } },
@@ -82,12 +83,6 @@ export default async function HomePage() {
   const companyReservations = user.role === 'MASTER' 
     ? allReservations 
     : allReservations.filter((res: { companyId: string }) => res.companyId === user.companyId);
-  const isAdmin = user.role === 'ADMIN' || user.role === 'MASTER';
-
-  const allCompaniesForMaster = user.role === 'MASTER'
-    ? await prisma.company.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } })
-    : [];
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
       {/* Header */}
@@ -95,7 +90,7 @@ export default async function HomePage() {
         companyName={user.company.nombre}
         userName={user.nombre}
         department={user.departamento}
-        horasDisponibles={horasDisponiblesMostrar}
+        horasRestantes={horasRestantesMostrar}
         userRole={user.role}
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -103,7 +98,7 @@ export default async function HomePage() {
         {/* Banner de Bienvenida */}
         <WelcomeBanner 
           userName={user.nombre} 
-          horasDisponibles={horasDisponiblesMostrar} 
+          horasRestantes={horasRestantesMostrar}
         />
 
         {/* Sección del Calendario Semanal con Control de Acceso por Rol */}
@@ -128,6 +123,7 @@ export default async function HomePage() {
             <ReservationForm 
               isMaster={user.role === 'MASTER'}
               companies={allCompaniesForMaster}
+              horasRestantesEmpresa={horasRestantesEmpresa}
               busySlots={allReservations.map((reservation) => ({
                 startTime: reservation.startTime.toISOString(),
                 endTime: reservation.endTime.toISOString(),

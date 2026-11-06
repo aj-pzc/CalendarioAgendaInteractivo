@@ -23,8 +23,8 @@ interface MasterUsersListProps {
   users: UserItem[];
   companies: CompanyItem[];
   currentSessionUserId: string;
-  updateAction: (formData: FormData) => void;
-  deleteAction: (formData: FormData) => void;
+  updateAction: (formData: FormData) => Promise<{ success?: boolean; error?: string } | void>;
+  deleteAction: (formData: FormData) => Promise<{ success?: boolean; error?: string }>;
 }
 
 export default function MasterUsersList({
@@ -46,6 +46,9 @@ export default function MasterUsersList({
     userName: '',
     formData: null,
   });
+  const [deletingUser, setDeletingUser] = useState<UserItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleOpenModal = (e: React.FormEvent<HTMLFormElement>, userName: string, userId: string) => {
     e.preventDefault();
@@ -69,6 +72,29 @@ export default function MasterUsersList({
       console.error('Error al actualizar:', error);
     } finally {
       setModalData({ isOpen: false, userId: '', userName: '', formData: null });
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingUser || isDeleting) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+    const formData = new FormData();
+    formData.set('userId', deletingUser.id);
+
+    try {
+      const result = await deleteAction(formData);
+      if (result.error) {
+        setDeleteError(result.error);
+        return;
+      }
+      setDeletingUser(null);
+    } catch (error) {
+      console.error('Error al eliminar usuario:', error);
+      setDeleteError('Ocurrió un error al eliminar el usuario. Inténtalo nuevamente.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -169,25 +195,20 @@ export default function MasterUsersList({
             {/* Botón Eliminar */}
             <div className="self-end md:self-center min-w-[34px] flex justify-center">
               {!isSelf ? (
-                <form 
-                  action={deleteAction}
-                  onSubmit={(e) => {
-                    if (!confirm(`¿Estás seguro de eliminar al usuario ${u.nombre}?`)) {
-                      e.preventDefault();
-                    }
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteError(null);
+                    setDeletingUser(u);
                   }}
+                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-slate-200 transition cursor-pointer flex items-center justify-center h-[34px] w-[34px]"
+                  title="Eliminar usuario"
+                  aria-label={`Eliminar usuario ${u.nombre}`}
                 >
-                  <input type="hidden" name="userId" value={u.id} />
-                  <button
-                    type="submit"
-                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-slate-200 transition cursor-pointer flex items-center justify-center h-[34px] w-[34px]"
-                    title="Eliminar / Dar de baja"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </form>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
               ) : (
                 <div className="w-[34px]" />
               )}
@@ -219,6 +240,58 @@ export default function MasterUsersList({
                 className="w-1/2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-xs cursor-pointer"
               >
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingUser && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-user-title"
+            className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-sm w-full p-6 space-y-5"
+          >
+            <div className="border-b border-slate-100 pb-3">
+              <h3 id="delete-user-title" className="text-base font-bold text-slate-900">
+                Eliminar usuario
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Esta acción es permanente y no se puede deshacer.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 space-y-0.5">
+              <p className="text-xs font-semibold text-rose-900">{deletingUser.nombre}</p>
+              <p className="text-[11px] text-rose-700">
+                @{deletingUser.username} · {deletingUser.email}
+              </p>
+            </div>
+
+            {deleteError && (
+              <p role="alert" className="text-xs text-rose-700">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingUser(null)}
+                disabled={isDeleting}
+                className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl transition cursor-pointer disabled:opacity-50"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs py-2.5 rounded-xl transition cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? 'Eliminando...' : 'Sí, eliminar'}
               </button>
             </div>
           </div>

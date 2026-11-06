@@ -1,36 +1,15 @@
 import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { createCompanyAction, updateCompanyHoursAction, updateUserAdminAction, deleteCompanyAction } from '@/app/actions/master';
+import {
+  createCompanyAction,
+  deleteUserAdminAction,
+  updateUserAdminAction,
+} from '@/app/actions/master';
 import MasterUsersList from '@/app/master/MasterUserList';
-import { revalidatePath } from 'next/cache';
+import CompanyManagementList from '@/app/master/CompanyManagementList';
 import { getSessionUserId } from '@/lib/session';
-
-// Acción inline para eliminar usuarios
-async function deleteUserAdminAction(formData: FormData) {
-  'use server';
-  const sessionUserId = await getSessionUserId();
-  if (!sessionUserId) return;
-
-  const currentMaster = await prisma.user.findUnique({
-    where: { id: sessionUserId },
-    select: { role: true, isApproved: true },
-  });
-
-  if (currentMaster?.role !== 'MASTER' || !currentMaster.isApproved) return;
-
-  const userId = formData.get('userId') as string;
-  if (!userId || userId === sessionUserId) return;
-
-  try {
-    await prisma.user.delete({
-      where: { id: userId },
-    });
-    revalidatePath('/master');
-  } catch (error) {
-    console.error('Error al eliminar usuario:', error);
-  }
-}
+import { getHoursPeriod } from '@/lib/company-hours';
 
 export default async function MasterPortalPage() {
   const sessionUserId = await getSessionUserId();
@@ -46,10 +25,15 @@ export default async function MasterPortalPage() {
     redirect('/');
   }
 
-  const companies = await prisma.company.findMany({
+  const companiesFromDb = await prisma.company.findMany({
     include: { _count: { select: { users: true, reservations: true } } },
     orderBy: { nombre: 'asc' },
   });
+  const currentHoursPeriod = getHoursPeriod();
+  const companies = companiesFromDb.map((company) => ({
+    ...company,
+    horasUsadas: company.horasPeriodo === currentHoursPeriod ? company.horasUsadas : 0,
+  }));
 
   const users = await prisma.user.findMany({
     include: { company: true },
@@ -131,71 +115,7 @@ export default async function MasterPortalPage() {
               <p className="text-xs text-slate-500">Supervisa las horas y gestiona las organizaciones.</p>
             </div>
 
-            <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
-              {companies.map((comp: { id: string; nombre: string; horasDisponibles: number; horasUsadas: number; _count: { users: number; reservations: number } }) => (
-                <div key={comp.id} className="p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50/50">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-900">{comp.nombre}</h3>
-                    <p className="text-[11px] text-slate-500">
-                      {comp._count.users} usuarios • {comp._count.reservations} reservas
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between">
-                    <div className="text-right">
-                      <span className="text-xs font-black text-slate-900">{comp.horasDisponibles} hrs</span>
-                      <p className="text-[10px] text-slate-400">Disp.</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-black text-amber-700">{comp.horasUsadas || 0} hrs</span>
-                      <p className="text-[10px] text-slate-400">Usadas</p>
-                    </div>
-
-                    {/* Formulario para Ajustar Horas */}
-                    <form action={updateCompanyHoursAction} className="flex items-center gap-1">
-                      <input type="hidden" name="companyId" value={comp.id} />
-                      <input
-                        type="number"
-                        step="0.5"
-                        name="cantidad"
-                        defaultValue="5"
-                        required
-                        className="w-14 px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-center font-medium"
-                      />
-                      <select name="tipoAccion" className="text-[10px] font-bold rounded-lg border border-slate-200 bg-white p-1">
-                        <option value="SUMAR_DISPONIBLES">+ Disp</option>
-                        <option value="RESTAR_DISPONIBLES">- Disp</option>
-                        <option value="SUMAR_USADAS">+ Usadas</option>
-                        <option value="RESTAR_USADAS">- Usadas</option>
-                      </select>
-                      <button
-                        type="submit"
-                        className="px-2.5 py-1.5 bg-slate-900 text-white text-[11px] font-semibold rounded-lg hover:bg-slate-800 transition cursor-pointer"
-                      >
-                        OK
-                      </button>
-                    </form>
-
-                    {/* Botón Eliminar Empresa */}
-                    <form 
-                      action={deleteCompanyAction}
-                      onSubmit={undefined} // <-- Evita cualquier onSubmit directo aquí
-                    >
-                      <input type="hidden" name="companyId" value={comp.id} />
-                      <button
-                        type="submit"
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-slate-200 transition cursor-pointer"
-                        title="Eliminar Empresa"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <CompanyManagementList companies={companies} />
           </section>
         </div>
 

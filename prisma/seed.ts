@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { getHoursPeriod } from '../lib/company-hours';
 
 const prisma = new PrismaClient();
 
@@ -35,7 +36,7 @@ async function main() {
   const company = await prisma.company.upsert({
     where: { nombre: companyName },
     update: {},
-    create: { nombre: companyName },
+    create: { nombre: companyName, horasPeriodo: getHoursPeriod() },
   });
 
   await prisma.user.create({

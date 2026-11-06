@@ -46,6 +46,10 @@ Existing sessions will need to sign in again after deployment because session co
 
 For future schema changes, create and review a migration locally with `npx prisma migrate dev`, commit the migration files, and apply them to Railway with `npx prisma migrate deploy` before sending application traffic that depends on the new schema. Do not run `migrate deploy` against the existing Railway database until the baseline has been marked as applied.
 
+The monthly hours balance adds the `Company.horasPeriodo` column. On the existing Railway database, first mark the baseline as applied if that has not been done, then run `npx prisma migrate deploy` to apply the new migration before deploying code that reads this field.
+
+Hours are shared by all users in a company. The displayed balance is the assigned monthly bag minus hours used. Reservations consume hours when created, edits adjust the difference, and cancellations return the charged hours. MASTER can also adjust usage for meetings managed outside the app; both usage and manual adjustments apply only to the current month in `America/Mexico_City`.
+
 ## Optional master-account seed
 
 The seed creates a master account only when the configured email and username do not already exist. It does not reset an existing account's password. Configure these environment variables before running `npx prisma db seed`:

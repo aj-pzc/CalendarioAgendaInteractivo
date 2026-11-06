@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { getSessionUserId } from '@/lib/session';
+import { getHoursPeriod, isCurrentHoursPeriod, lockAndGetCompanyHours } from '@/lib/company-hours';
 
 type Recurso = 'SALA' | 'OFICINA';
 
@@ -127,7 +128,15 @@ export async function createReservation({
 
     const created = await withReservationLock(async (tx) => {
       const conflict = await hasReservationConflict(tx, recurso, start, end);
-      if (conflict) return false;
+      if (conflict) return { error: 'conflict' as const };
+
+      const company = await lockAndGetCompanyHours(tx, finalCompanyId, now);
+      if (!company) return { error: 'company-not-found' as const };
+
+      const saldoRestante = company.horasDisponibles - company.horasUsadas;
+      if (horasSolicitadas > saldoRestante + 0.000001) {
+        return { error: 'insufficient-hours' as const, saldoRestante };
+      }
 
       await tx.reservation.create({
         data: {
@@ -144,14 +153,25 @@ export async function createReservation({
 
       await tx.company.update({
         where: { id: finalCompanyId },
-        data: { horasUsadas: { increment: horasSolicitadas } },
+        data: { horasUsadas: Math.round((company.horasUsadas + horasSolicitadas) * 100) / 100 },
       });
 
-      return true;
+      return { success: true as const };
     });
 
-    if (!created) {
-      return { error: 'El espacio ya está reservado en ese horario. Selecciona otro horario.' };
+    if ('error' in created) {
+      if (created.error === 'conflict') {
+        return { error: 'El espacio ya está reservado en ese horario. Selecciona otro horario.' };
+      }
+      if (created.error === 'company-not-found') {
+        return { error: 'La empresa seleccionada ya no existe.' };
+      }
+      if (created.error === 'insufficient-hours') {
+        return {
+          error: `La empresa no cuenta con horas suficientes. Saldo actual: ${Math.max(0, created.saldoRestante).toFixed(2)} horas; requeridas: ${horasSolicitadas.toFixed(2)}.`,
+        };
+      }
+      return { error: 'No se pudo validar el saldo de horas de la empresa.' };
     }
 
     revalidatePath('/');
@@ -197,12 +217,34 @@ export async function deleteReservationAction(reservationId: string) {
       return { error: 'No tienes permisos para cancelar esta reserva.' };
     }
 
-    // Eliminar la reserva
-    await prisma.reservation.delete({
-      where: { id: reservationId },
+    const deleted = await withReservationLock(async (tx) => {
+      const currentReservation = await tx.reservation.findUnique({ where: { id: reservationId } });
+      if (!currentReservation) return false;
+
+      const now = new Date();
+      const company = await lockAndGetCompanyHours(tx, currentReservation.companyId, now);
+      if (!company) throw new Error('No se encontró la empresa de la reserva.');
+
+      if (
+        currentReservation.estado !== 'CANCELADA' &&
+        isCurrentHoursPeriod(getHoursPeriod(currentReservation.updatedAt), now)
+      ) {
+        await tx.company.update({
+          where: { id: currentReservation.companyId },
+          data: {
+            horasUsadas: Math.max(0, company.horasUsadas - currentReservation.horasSolicitadas),
+          },
+        });
+      }
+
+      await tx.reservation.delete({ where: { id: reservationId } });
+      return true;
     });
 
+    if (!deleted) return { error: 'La reserva ya no existe.' };
+
     revalidatePath('/');
+    revalidatePath('/master');
     return { success: true };
   } catch (error) {
     console.error('Error al eliminar reserva:', error);
@@ -275,7 +317,26 @@ export async function updateReservationAction({
 
     const updated = await withReservationLock(async (tx) => {
       const conflict = await hasReservationConflict(tx, recurso, start, end, id);
-      if (conflict) return false;
+      if (conflict) return { error: 'conflict' as const };
+
+      const currentReservation = await tx.reservation.findUnique({ where: { id } });
+      if (!currentReservation) return { error: 'not-found' as const };
+
+      const company = await lockAndGetCompanyHours(tx, currentReservation.companyId, now);
+      if (!company) return { error: 'company-not-found' as const };
+
+      const wasChargedThisPeriod = isCurrentHoursPeriod(
+        getHoursPeriod(currentReservation.updatedAt),
+        now
+      );
+      const hoursDelta = wasChargedThisPeriod
+        ? horasSolicitadas - currentReservation.horasSolicitadas
+        : horasSolicitadas;
+      const newHoursUsed = Math.max(0, company.horasUsadas + hoursDelta);
+
+      if (newHoursUsed > company.horasDisponibles + 0.000001) {
+        return { error: 'insufficient-hours' as const, saldoRestante: company.horasDisponibles - company.horasUsadas };
+      }
 
       await tx.reservation.update({
         where: { id },
@@ -288,11 +349,28 @@ export async function updateReservationAction({
         },
       });
 
-      return true;
+      if (hoursDelta !== 0) {
+        await tx.company.update({
+          where: { id: currentReservation.companyId },
+          data: { horasUsadas: Math.round(newHoursUsed * 100) / 100 },
+        });
+      }
+
+      return { success: true as const };
     });
 
-    if (!updated) {
-      return { error: 'El espacio ya está reservado en ese horario. Selecciona otro horario.' };
+    if ('error' in updated) {
+      if (updated.error === 'conflict') {
+        return { error: 'El espacio ya está reservado en ese horario. Selecciona otro horario.' };
+      }
+      if (updated.error === 'not-found') return { error: 'La reserva ya no existe.' };
+      if (updated.error === 'company-not-found') return { error: 'No se encontró la empresa de la reserva.' };
+      if (updated.error === 'insufficient-hours') {
+        return {
+          error: `La empresa no cuenta con horas suficientes para el cambio. Saldo actual: ${Math.max(0, updated.saldoRestante).toFixed(2)} horas.`,
+        };
+      }
+      return { error: 'No se pudo validar el saldo de horas de la empresa.' };
     }
 
     revalidatePath('/');

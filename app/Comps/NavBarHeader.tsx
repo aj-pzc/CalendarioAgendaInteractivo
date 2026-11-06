@@ -7,7 +7,7 @@ interface NavbarHeaderProps {
   companyName: string;
   userName: string;
   department?: string | null;
-  horasDisponibles: number;
+  horasRestantes: number;
   userRole?: string; // "USER", "ADMIN", "MASTER"
 }
 
@@ -15,7 +15,7 @@ export default function NavbarHeader({
   companyName,
   userName,
   department,
-  horasDisponibles,
+  horasRestantes,
   userRole,
 }: NavbarHeaderProps) {
   const isMaster = userRole === 'MASTER';
@@ -78,8 +78,8 @@ export default function NavbarHeader({
             </div>
             <div className="h-7 w-px bg-slate-200 hidden md:block" />
             <div className="text-right">
-              <p className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Bolsa Horas</p>
-              <p className="text-xs sm:text-sm font-black text-slate-900">{horasDisponibles} hrs</p>
+              <p className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Bolsa restante</p>
+              <p className="text-xs sm:text-sm font-black text-slate-900">{horasRestantes} hrs</p>
             </div>
           </div>
 

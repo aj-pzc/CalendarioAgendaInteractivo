@@ -8,13 +8,15 @@
 
   interface ReservationFormProps {
     isMaster?: boolean;
-    companies?: { id: string; nombre: string }[];
+    companies?: { id: string; nombre: string; horasRestantes: number }[];
+    horasRestantesEmpresa?: number;
     busySlots?: { startTime: string; endTime: string; recurso: string }[];
   }
 
   export default function ReservationForm({
     isMaster = false,
     companies = [],
+    horasRestantesEmpresa = 0,
     busySlots = [],
   }: ReservationFormProps) {
     const [step, setStep] = useState<1 | 2>(1);
@@ -131,6 +133,11 @@
     };
 
     const horasSolicitadas = calcularHoras();
+    const saldoEmpresaSeleccionada = isMaster
+      ? companies.find((company) => company.id === selectedCompanyId)?.horasRestantes
+      : horasRestantesEmpresa;
+    const noHayHorasSuficientes =
+      saldoEmpresaSeleccionada !== undefined && horasSolicitadas > saldoEmpresaSeleccionada;
 
     const handleNextStep = (e: React.FormEvent) => {
       e.preventDefault();
@@ -476,8 +483,29 @@
                 </div>
                 <div className="flex justify-between py-2 bg-slate-50 px-3 rounded-xl border border-slate-100 mt-2">
                   <span className="font-bold text-slate-700">Horas a descontar:</span>
-                  <span className="font-black text-slate-900">{horasSolicitadas} hr(s)</span>
+                  <span className="font-black text-slate-900">{Number(horasSolicitadas.toFixed(2))} hr(s)</span>
                 </div>
+                {saldoEmpresaSeleccionada !== undefined && (
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Saldo actual:</span>
+                      <span className="font-semibold text-slate-900">
+                        {Number(saldoEmpresaSeleccionada.toFixed(2))} hrs
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Saldo después de reservar:</span>
+                      <span className={`font-semibold ${noHayHorasSuficientes ? 'text-rose-700' : 'text-emerald-700'}`}>
+                        {Number((saldoEmpresaSeleccionada - horasSolicitadas).toFixed(2))} hrs
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {noHayHorasSuficientes && (
+                  <p role="alert" className="text-[11px] text-rose-700">
+                    El saldo de la empresa no alcanza para esta reservación.
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2 pt-2">
@@ -492,7 +520,7 @@
                 <button
                   type="button"
                   onClick={handleConfirmReservation}
-                  disabled={loading}
+                  disabled={loading || noHayHorasSuficientes}
                   className="w-1/2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-xs cursor-pointer"
                 >
                   {loading ? 'Guardando...' : 'Confirmar'}
