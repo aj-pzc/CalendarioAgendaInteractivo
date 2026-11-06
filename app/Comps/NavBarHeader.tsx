@@ -87,7 +87,9 @@ export default function NavbarHeader({
         
         {/* Logo Corporativo y Título */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <CCRLogo size={44} className="ring-1 ring-amber-300/70 shadow-sm" />
+          <Link href="/" aria-label="Ir al calendario" title="Ir al calendario">
+            <CCRLogo size={44} className="ring-1 ring-amber-300/70 shadow-sm" />
+          </Link>
           <div>
             <div className="flex items-center gap-2">
               <h1
